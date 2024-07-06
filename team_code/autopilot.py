@@ -1499,7 +1499,7 @@ class AutoPilot(autonomous_agent_local.AutonomousAgent):
         center_ego_bb_global = ego_vehicle_transform.transform(self._vehicle.bounding_box.location)
         ego_bb_global = carla.BoundingBox(center_ego_bb_global, self._vehicle.bounding_box.extent)
         ego_bb_global.rotation = ego_vehicle_transform.rotation
-
+      
         if self.visualize == 1:
             self._world.debug.draw_box(box=ego_bb_global,
                                        rotation=ego_bb_global.rotation,
