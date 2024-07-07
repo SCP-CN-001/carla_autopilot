@@ -1,0 +1,36 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v3.2.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-toml
+  - id: check-yaml
+  - id: check-added-large-files
+    args: [--maxkb=5000]
+  - id: requirements-txt-fixer
+- repo: https://github.com/scop/pre-commit-shfmt
+  rev: v3.8.0-1
+  hooks:
+  - id: shfmt
+    args: [-i, '2', -ci]
+- repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+  rev: 0.2.1  # or other specific tag
+  hooks:
+  - id: yamlfmt
+    args: [--implicit_start, -m, '2', -s, '2', -o, '0', -w, '100']
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.15.1
+  hooks:
+  - id: pyupgrade
+- repo: https://github.com/pycqa/isort
+  rev: 5.13.2
+  hooks:
+  - id: isort
+    args: [--profile=black]
+- repo: https://github.com/python/black
+  rev: 23.12.1
+  hooks:
+  - id: black

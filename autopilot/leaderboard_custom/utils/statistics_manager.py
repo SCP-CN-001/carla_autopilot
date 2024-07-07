@@ -11,7 +11,6 @@ This module contains a statistics manager for the CARLA AD leaderboard
 
 
 import math
-import os
 
 from dictor import dictor
 from leaderboard.utils.checkpoint_tools import fetch_dict, save_dict
@@ -298,7 +297,9 @@ class StatisticsManager:
 
     def save_entry_status(self, entry_status):
         if entry_status not in ENTRY_STATUS_VALUES:
-            raise ValueError("Found an invalid value for 'entry_status'")
+            raise ValueError(
+                f"Found an invalid value {entry_status} for 'entry_status'"
+            )
         self._results.entry_status = entry_status
         self._results.eligible = ELIGIBLE_VALUES[entry_status]
 

@@ -19,6 +19,7 @@ from config import GlobalConfig
 from kinematic_bicycle_model import KinematicBicycleModel
 from lateral_controller import LateralPIDController
 from leaderboard_custom.autoagents import autonomous_agent
+from leaderboard_custom.scenarios.cheater import Cheater
 from longitudinal_controller import LongitudinalLinearRegressionController
 from nav_planner import RoutePlanner
 from privileged_route_planner import PrivilegedRoutePlanner
@@ -729,15 +730,13 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
             distances = []
 
             # Calculate the distance of each scenario's first actor from the ego vehicle
-            for _, scenario_data in CarlaDataProvider.active_scenarios:
+            for _, scenario_data in Cheater.active_scenarios:
                 first_actor = scenario_data[0]
                 distances.append(ego_location.distance(first_actor.get_location()))
 
             # Sort the scenarios based on the calculated distances
             indices = np.argsort(distances)
-            CarlaDataProvider.active_scenarios = [
-                CarlaDataProvider.active_scenarios[i] for i in indices
-            ]
+            Cheater.active_scenarios = [Cheater.active_scenarios[i] for i in indices]
 
         keep_driving = False
         speed_reduced_by_obj = [
@@ -748,23 +747,23 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
         ]  # [target_speed, type, id, distance]
 
         # Remove scenarios that ended with a scenario timeout
-        active_scenarios = CarlaDataProvider.active_scenarios.copy()
+        active_scenarios = Cheater.active_scenarios.copy()
         for i, (scenario_type, scenario_data) in enumerate(active_scenarios):
             first_actor, last_actor = scenario_data[:2]
             if not first_actor.is_alive or (
                 last_actor is not None and not last_actor.is_alive
             ):
-                CarlaDataProvider.active_scenarios.remove(active_scenarios[i])
+                Cheater.active_scenarios.remove(active_scenarios[i])
 
         # Only continue if there are some active scenarios available
-        if len(CarlaDataProvider.active_scenarios) != 0:
+        if len(Cheater.active_scenarios) != 0:
             ego_location = self._vehicle.get_location()
 
             # Sort the scenarios by distance if there is more than one active scenario
-            if len(CarlaDataProvider.active_scenarios) != 1:
+            if len(Cheater.active_scenarios) != 1:
                 sort_scenarios_by_distance(ego_location)
 
-            scenario_type, scenario_data = CarlaDataProvider.active_scenarios[0]
+            scenario_type, scenario_data = Cheater.active_scenarios[0]
 
             if scenario_type == "InvadingTurn":
                 first_cone, last_cone, offset = scenario_data
@@ -778,9 +777,7 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                     self._waypoint_planner.shift_route_for_invading_turn(
                         first_cone, last_cone, offset
                     )
-                    CarlaDataProvider.active_scenarios = (
-                        CarlaDataProvider.active_scenarios[1:]
-                    )
+                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
 
             elif scenario_type in [
                 "Accident",
@@ -806,9 +803,7 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                     _, _ = self._waypoint_planner.shift_route_around_actors(
                         first_actor, last_actor, direction, transition_length
                     )
-                    CarlaDataProvider.active_scenarios = (
-                        CarlaDataProvider.active_scenarios[1:]
-                    )
+                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
 
             elif scenario_type in [
                 "AccidentTwoWays",
@@ -922,9 +917,7 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                         >= to_index
                         - self.config.distance_to_delete_scenario_in_two_ways
                     ):
-                        CarlaDataProvider.active_scenarios = (
-                            CarlaDataProvider.active_scenarios[1:]
-                        )
+                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
                     target_speed = {
                         "AccidentTwoWays": self.config.default_overtake_speed,
                         "ConstructionObstacleTwoWays": self.config.default_overtake_speed,
@@ -1014,9 +1007,7 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                 if path_clear:
                     # Check if the overtaking is done
                     if self._waypoint_planner.route_index >= to_index:
-                        CarlaDataProvider.active_scenarios = (
-                            CarlaDataProvider.active_scenarios[1:]
-                        )
+                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
                     # Overtake with max. 50 km/h
                     target_speed, keep_driving = (
                         self.config.default_overtake_speed,
@@ -1062,9 +1053,7 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                     scenario_data[4] = to_index
 
                 if self._waypoint_planner.route_index > to_index:
-                    CarlaDataProvider.active_scenarios = (
-                        CarlaDataProvider.active_scenarios[1:]
-                    )
+                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
 
             elif scenario_type == "YieldToEmergencyVehicle":
                 (
@@ -1125,9 +1114,7 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                         self._vehicle.get_transform().get_forward_vector().dot(diff)
                     )
                     if dot_res > 0:
-                        CarlaDataProvider.active_scenarios = (
-                            CarlaDataProvider.active_scenarios[1:]
-                        )
+                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
 
         # Visualization for debugging
         if self.visualize == 1:
@@ -2199,8 +2186,10 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                 current_ego_transform.location.z,
             ]
         )
-        heading_angle = np.array([np.deg2rad(current_ego_transform.rotation.yaw)])
-        speed = np.array([current_ego_speed])
+        # heading_angle = np.array([np.deg2rad(current_ego_transform.rotation.yaw)])
+        heading_angle = np.deg2rad(current_ego_transform.rotation.yaw)
+        # speed = np.array([current_ego_speed])
+        speed = current_ego_speed
 
         # Calculate the throttle command based on the target speed and current speed
         throttle = self._longitudinal_controller.get_throttle_extrapolation(

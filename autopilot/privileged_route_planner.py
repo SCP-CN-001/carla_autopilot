@@ -874,7 +874,7 @@ class PrivilegedRoutePlanner:
 
         # Initialize arrays to store distances and next stop signs
         self.distances_to_next_stop_signs = np.full(
-            self.route_points.shape[0], np.inf, dtype=np.float
+            self.route_points.shape[0], np.inf, dtype=np.float64
         )
         self.next_stop_signs = [None] * self.route_points.shape[0]
 
@@ -939,7 +939,7 @@ class PrivilegedRoutePlanner:
         map_name = carla_map.name.split("/")[-1]
 
         # Load speed limit data from file
-        file_name_speed_limits = f"team_code/speed_limits/{map_name}_speed_limits.npy"
+        file_name_speed_limits = f"/home/rowena/Documents/RAMBLE/ramble/third-parties/carla_autopilot/autopilot/speed_limits/{map_name}_speed_limits.npy"
         file_content = np.load(file_name_speed_limits, allow_pickle=True)
         map_data = file_content.item()
 
@@ -949,7 +949,7 @@ class PrivilegedRoutePlanner:
         tree = cKDTree(map_locations)
 
         # Initialize array to store speed limits
-        self.speed_limits = np.empty(self.route_points.shape[0], dtype=np.float)
+        self.speed_limits = np.empty(self.route_points.shape[0], dtype=np.float64)
         previous_speed_limit = -1
 
         # Iterate through route locations

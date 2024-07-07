@@ -136,6 +136,6 @@ class KinematicBicycleModel:
                 next_speed = next_speed_kph / 3.6
 
         next_speed = np.maximum(0.0, next_speed)
-        next_location = np.array([next_x[0], next_y[0], location[2]])
+        next_location = np.array([next_x, next_y, location[2]])
 
         return next_location, next_heading, next_speed

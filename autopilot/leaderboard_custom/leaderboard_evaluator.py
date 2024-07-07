@@ -10,12 +10,11 @@ CARLA Challenge Evaluator Routes
 
 Provisional code to evaluate Autonomous Agents for the CARLA Autonomous Driving challenge
 """
-
-print("start leaderboard_evaluator_local.py")
 import argparse
 import importlib
 import os
 import pathlib
+import random
 import signal
 import socket
 import sys
@@ -29,17 +28,12 @@ import numpy as np
 import pkg_resources
 import torch
 from leaderboard.envs.sensor_interface import SensorConfigurationInvalid
-from leaderboard.scenarios.route_scenario import RouteScenario
 from leaderboard.utils.route_indexer import RouteIndexer
-from leaderboard_custom.autoagents.agent_wrapper import (
-    AgentError,
-    validate_sensor_configuration,
-)
+from leaderboard.utils.statistics_manager import FAILURE_MESSAGES, StatisticsManager
+from leaderboard_custom.autoagents.agent_wrapper import AgentError
+from leaderboard_custom.scenarios.cheater import Cheater
+from leaderboard_custom.scenarios.route_scenario import RouteScenario
 from leaderboard_custom.scenarios.scenario_manager import ScenarioManager
-from leaderboard_custom.utils.statistics_manager import (
-    FAILURE_MESSAGES,
-    StatisticsManager,
-)
 from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
@@ -88,13 +82,9 @@ class LeaderboardEvaluator:
         self._ros1_server = None
 
         # Setup the simulation
-        (
-            self.client,
-            self.client_timeout,
-            self.traffic_manager,
-            self.traffic_manager_port,
-        ) = self._setup_simulation(args)
-
+        self.client, self.client_timeout, self.traffic_manager = self._setup_simulation(
+            args
+        )
         dist = pkg_resources.get_distribution("carla")
         if dist.version != "leaderboard":
             if LooseVersion(dist.version) < LooseVersion("0.9.10"):
@@ -161,6 +151,7 @@ class LeaderboardEvaluator:
         Remove and destroy all actors
         """
         CarlaDataProvider.cleanup()
+        Cheater.cleanup()
 
         if self._agent_watchdog:
             self._agent_watchdog.stop()
@@ -189,23 +180,6 @@ class LeaderboardEvaluator:
             sensor.stop()
             sensor.destroy()
 
-    def find_free_port(self, start_port=2_000, end_port=40_000):
-        for port in range(start_port, end_port + 1):
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-            try:
-                s.bind(("localhost", port))
-                return port
-            except (
-                OSError
-            ) as e:  # Address already in use or Address already in use (WinError)
-                pass
-            finally:
-                s.close()
-
-        return None
-
     def _setup_simulation(self, args):
         """
         Prepares the simulation by getting the client, and setting up the world and traffic manager settings
@@ -216,16 +190,18 @@ class LeaderboardEvaluator:
         client.set_timeout(client_timeout)
 
         settings = carla.WorldSettings(
-            synchronous_mode=True, fixed_delta_seconds=1.0 / self.frame_rate
+            synchronous_mode=True,
+            fixed_delta_seconds=1.0 / self.frame_rate,
+            deterministic_ragdolls=True,
+            spectator_as_ego=False,
         )
         client.get_world().apply_settings(settings)
 
-        traffic_manager_port = self.find_free_port()
-        traffic_manager = client.get_trafficmanager(traffic_manager_port)
+        traffic_manager = client.get_trafficmanager(args.traffic_manager_port)
         traffic_manager.set_synchronous_mode(True)
         traffic_manager.set_hybrid_physics_mode(True)
 
-        return client, client_timeout, traffic_manager, traffic_manager_port
+        return client, client_timeout, traffic_manager
 
     def _reset_world_settings(self):
         """
@@ -251,11 +227,12 @@ class LeaderboardEvaluator:
         Load a new CARLA world without changing the settings and provide data to CarlaDataProvider
         """
 
-        loaded_town = self.client.get_world().get_map().name.split("/")[-1]
-        if loaded_town != town:
-            self.world = self.client.load_world(town, reset_settings=False)
-        else:
-            self.world = self.client.get_world()
+        # loaded_town = self.client.get_world().get_map().name.split("/")[-1]
+        # if loaded_town != town:
+        #     self.world = self.client.load_world(town, reset_settings=False)
+        # else:
+        #     self.world = self.client.get_world()
+        self.world = self.client.load_world(town, reset_settings=False)
 
         # Large Map settings are always reset, for some reason
         settings = self.world.get_settings()
@@ -265,9 +242,8 @@ class LeaderboardEvaluator:
 
         self.world.reset_all_traffic_lights()
         CarlaDataProvider.set_client(self.client)
-        CarlaDataProvider.set_traffic_manager_port(self.traffic_manager_port)
+        CarlaDataProvider.set_traffic_manager_port(args.traffic_manager_port)
         CarlaDataProvider.set_world(self.world)
-        CarlaDataProvider.set_random_seed(args.traffic_manager_seed)
 
         # This must be here so that all route repetitions use the same 'unmodified' seed
         self.traffic_manager.set_random_device_seed(args.traffic_manager_seed)
@@ -294,7 +270,6 @@ class LeaderboardEvaluator:
         print("\033[1m> Registering the route statistics\033[0m")
         self.statistics_manager.save_entry_status(entry_status)
         current_stats_record = self.statistics_manager.compute_route_statistics(
-            route_date_string,
             route_index,
             self.manager.scenario_duration_system,
             self.manager.scenario_duration_game,
@@ -395,9 +370,9 @@ class LeaderboardEvaluator:
             # Check and store the sensors
             if not self.sensors:
                 self.sensors = self.agent_instance.sensors()
-                track = self.agent_instance.track
+                # track = self.agent_instance.track
 
-                validate_sensor_configuration(self.sensors, track, args.track)
+                # validate_sensor_configuration(self.sensors, track, args.track)
 
                 self.sensor_icons = [
                     sensors_to_icons[sensor["type"]] for sensor in self.sensors
