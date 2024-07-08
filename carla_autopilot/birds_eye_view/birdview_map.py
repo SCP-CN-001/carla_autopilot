@@ -14,8 +14,9 @@ import h5py
 import numpy as np
 import pygame
 from omegaconf import OmegaConf
-from server_utils import CarlaServerManager
 from traffic_light import TrafficLightHandler
+
+from carla_autopilot.utils.server_utils import CarlaServerManager
 
 COLOR_WHITE = (255, 255, 255)
 
@@ -488,7 +489,9 @@ if __name__ == "__main__":
     pixels_per_meter = float(args.pixels_per_meter)
     for cfg in server_manager.env_configs:
         carla_map = cfg["env_configs"]["carla_map"]
-        hf_file_path = save_dir / (carla_map + ".h5")
+        dir_file = os.path.dirname(os.path.abspath(__file__))
+        dir_maps = os.path.join(dir_file, "../../data/maps")
+        hf_file_path = os.path.join(dir_maps, (carla_map + ".h5"))
 
         # pass if map h5 already exists
         if hf_file_path.exists():

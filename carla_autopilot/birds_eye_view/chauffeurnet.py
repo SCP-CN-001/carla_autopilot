@@ -5,7 +5,6 @@ Code adapted from https://github.com/zhejz/carla-roach
 
 import os
 from collections import deque
-from pathlib import Path
 
 import carla
 import cv2 as cv
@@ -68,12 +67,9 @@ class ObsManager(ObsManagerBase):
         self.vehicle = None
         self._world = None
 
-        if "map_folder" in obs_configs:
-            map_folder = obs_configs["map_folder"]
-        else:
-            map_folder = "maps"
-
-        self._map_dir = Path(__file__).resolve().parent / map_folder
+        self._map_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "../../data/maps"
+        )
 
         super().__init__()
 
@@ -100,8 +96,8 @@ class ObsManager(ObsManagerBase):
         self._world = self.vehicle.get_world()
         self.criteria_stop = criteria_stop
 
-        maps_h5_path = self._map_dir / (
-            self._world.get_map().name.split("/")[-1] + ".h5"
+        maps_h5_path = os.path.join(
+            self._map_dir, self._world.get_map().name.split("/")[-1] + ".h5"
         )  # splitting because for Town13 the name is 'Carla/Maps/Town13/Town13' instead of 'Town13'
         with h5py.File(maps_h5_path, "r", libver="latest", swmr=True) as hf:
             self._road = np.array(hf["road"], dtype=np.uint8)

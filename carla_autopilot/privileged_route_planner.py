@@ -3,6 +3,7 @@ This Python script defines a PrivilegedRoutePlanner class for planning and modif
 simulation environment. The class provides functionalities to create a smooth and interpolated route,
 compute distances to traffic lights and stop signs, handle lane changes, and identify leading and trailing vehicles.
 """
+import os
 
 import carla
 import numpy as np
@@ -939,7 +940,9 @@ class PrivilegedRoutePlanner:
         map_name = carla_map.name.split("/")[-1]
 
         # Load speed limit data from file
-        file_name_speed_limits = f"/home/rowena/Documents/RAMBLE/ramble/third-parties/carla_autopilot/autopilot/speed_limits/{map_name}_speed_limits.npy"
+        file_name_speed_limits = f"../data/speed_limits/{map_name}_speed_limits.npy"
+        dir_file = os.path.dirname(os.path.abspath(__file__))
+        file_name_speed_limits = os.path.join(dir_file, file_name_speed_limits)
         file_content = np.load(file_name_speed_limits, allow_pickle=True)
         map_data = file_content.item()
 

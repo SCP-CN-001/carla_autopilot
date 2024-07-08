@@ -1,0 +1,6 @@
+[submodule "leaderboard_20/scenario_runner"]
+	path = leaderboard_20/scenario_runner
+	url = git@github.com:carla-simulator/scenario_runner.git
+[submodule "leaderboard_20/leaderboard"]
+	path = leaderboard_20/leaderboard
+	url = git@github.com:carla-simulator/leaderboard.git

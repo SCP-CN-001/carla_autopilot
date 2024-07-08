@@ -135,11 +135,11 @@ class GlobalConfig:
         self.clearing_distance_to_stop_sign = 3.0
         # IDM minimum distance for stop signs
         self.idm_stop_sign_minimum_distance = 2.0
-        # IDM desrired time headway for stop signs
+        # IDM desired time headway for stop signs
         self.idm_stop_sign_desired_time_headway = 0.1
         # IDM minimum distance for red lights
         self.idm_red_light_minimum_distance = 6.0
-        # IDM desrired time headway for red lights
+        # IDM desired time headway for red lights
         self.idm_red_light_desired_time_headway = 0.1
         # IDM minimum distance for pedestrians
         self.idm_pedestrian_minimum_distance = 4.0

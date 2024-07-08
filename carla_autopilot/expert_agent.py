@@ -14,24 +14,19 @@ import laspy
 import numpy as np
 import torch
 import transfuser_utils as t_u
-import webcolors
-from agents.navigation.local_planner import LocalPlanner, RoadOption
+from agents.navigation.local_planner import LocalPlanner
 from agents.tools.misc import (
     compute_distance,
-    get_speed,
     get_trafficlight_trigger_location,
     is_within_distance,
 )
+from autopilot import AutoPilot
 from birds_eye_view.chauffeurnet import ObsManager
 from birds_eye_view.run_stop_sign import RunStopSign
 from PIL import Image
-
-# from: https://medium.com/codex/rgb-to-color-names-in-python-the-robust-way-ec4a9d97a01f
 from scipy.spatial import KDTree
 from shapely.geometry import Polygon
 from webcolors import CSS2_HEX_TO_NAMES, hex_to_rgb
-
-from autopilot import AutoPilot
 
 
 def convert_rgb_to_names(rgb_tuple):
@@ -49,10 +44,10 @@ def convert_rgb_to_names(rgb_tuple):
 
 
 def get_entry_point():
-    return "DataAgent"
+    return "ExpertAgent"
 
 
-class DataAgent(AutoPilot):
+class ExpertAgent(AutoPilot):
     """
     Child of the autopilot that additionally runs data collection and storage.
     """

@@ -382,7 +382,6 @@ class RouteScenario(BasicScenario):
                         self.world, [ego_vehicle], scenario_config, timeout=self.timeout
                     )
                     Cheater.update(scenario_config.type, scenario_instance)
-                    print(Cheater.active_scenarios)
 
                     # Add new scenarios to list
                     self.list_scenarios.append(scenario_instance)

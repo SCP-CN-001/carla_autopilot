@@ -1,15 +1,14 @@
-"""
-Utils to start and stop a CARLA server.
-Code adapted from https://github.com/zhejz/carla-roach
-"""
+##!/usr/bin/env python3
+# @File: server_utils.py
+# @Description: Code adapted from https://github.com/zhejz/carla-roach.
+# @CreatedTime: 2024/07/07
+# @Author: Yueyuan Li
+
 import logging
 import subprocess
 import time
 
 from omegaconf import OmegaConf
-
-# os.environ.get('CUDA_VISIBLE_DEVICES')
-
 
 log = logging.getLogger(__name__)
 
