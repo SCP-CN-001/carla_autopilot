@@ -6,7 +6,11 @@
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
 """
-This module provides Challenge routes as standalone scenarios
+This module provides Challenge routes as standalone scenarios.
+
+Adapted from: https://github.com/carla-simulator/leaderboard/blob/leaderboard-2.0/leaderboard/scenarios/route_scenario.py
+
+The only modification is the addition of the Cheater class and its usage in line 387.
 """
 
 
@@ -19,12 +23,10 @@ import traceback
 
 import carla
 import leaderboard.utils.parked_vehicles as parked_vehicles
-import numpy as np
 import py_trees
 from agents.navigation.local_planner import RoadOption
 from leaderboard.utils.route_manipulation import interpolate_trajectory
 from leaderboard.utils.route_parser import DIST_THRESHOLD, RouteParser
-from leaderboard_custom.scenarios.cheater import Cheater
 from srunner.scenarioconfigs.scenario_configuration import ActorConfigurationData
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.lights_sim import RouteLightsBehavior
@@ -50,9 +52,10 @@ from srunner.scenariomanager.weather_sim import RouteWeatherBehavior
 from srunner.scenarios.background_activity import BackgroundBehavior
 from srunner.scenarios.basic_scenario import BasicScenario
 
+from src.leaderboard_custom.scenarios.cheater import Cheater
+
 
 class RouteScenario(BasicScenario):
-
     """
     Implementation of a RouteScenario, i.e. a scenario that consists of driving along a pre-defined route,
     along which several smaller scenarios are triggered

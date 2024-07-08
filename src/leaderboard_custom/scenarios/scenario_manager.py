@@ -7,7 +7,10 @@
 
 """
 This module provides the ScenarioManager implementations.
-It must not be modified and is for reference only!
+
+Adapted from:
+- https://github.com/carla-simulator/leaderboard/blob/leaderboard-2.0/leaderboard/scenarios/scenario_manager.py
+- https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/leaderboard/leaderboard/scenarios/scenario_manager_local.py
 """
 
 import signal
@@ -19,10 +22,14 @@ import carla
 import py_trees
 from leaderboard.envs.sensor_interface import SensorReceivedNoData
 from leaderboard.utils.result_writer import ResultOutputProvider
-from leaderboard_custom.autoagents.agent_wrapper import AgentError, AgentWrapperFactory
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
+
+from src.leaderboard_custom.autoagents.agent_wrapper import (
+    AgentError,
+    AgentWrapperFactory,
+)
 
 
 class ScenarioManager:

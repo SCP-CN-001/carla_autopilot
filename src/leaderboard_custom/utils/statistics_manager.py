@@ -6,7 +6,11 @@
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
 """
-This module contains a statistics manager for the CARLA AD leaderboard
+This module contains a statistics manager for the CARLA AD leaderboard.
+
+Adapted from:
+- https://github.com/carla-simulator/leaderboard/blob/leaderboard-2.0/leaderboard/utils/statistics_manager.py
+- https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/leaderboard/leaderboard/scenarios/scenario_manager_local.py
 """
 
 

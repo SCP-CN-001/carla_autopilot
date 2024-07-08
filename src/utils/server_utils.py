@@ -1,8 +1,8 @@
 ##!/usr/bin/env python3
 # @File: server_utils.py
-# @Description: Code adapted from https://github.com/zhejz/carla-roach.
+# @Description: This script manages the start and stop of the CARLA server.
 # @CreatedTime: 2024/07/07
-# @Author: Yueyuan Li
+# @Author: Roach
 
 import logging
 import subprocess
@@ -22,7 +22,9 @@ def kill_carla():
 
 class CarlaServerManager:
     """
-    Starts and stops a CARLA server
+    Starts and stops a CARLA server.
+
+    Code adapted from https://github.com/zhejz/carla-roach/blob/main/utils/server_utils.py.
     """
 
     def __init__(self, carla_sh_str, port=2000, configs=None, t_sleep=5):

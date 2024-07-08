@@ -1,52 +1,20 @@
-"""
-This file implements a lateral PID controller and its super class, which enables furhter lateral
-controller implementations.
-"""
+##!/usr/bin/env python3
+# @File: lateral_controller.py
+# @Description: Lateral controller for the vehicle.
+# @CreatedTime: 2024/07/08
+# @Author: PDM-Lite
+
 
 import numpy as np
 
-
-class LateralController:
-    """
-    Base class for lateral controllers.
-    """
-
-    def __init__(self, config):
-        self.config = config
-
-    def compute_steering(
-        self, route_points, current_speed, vehicle_position, vehicle_heading
-    ):
-        """
-        Computes the steering angle based on the route, current speed, vehicle position, and heading.
-
-        Args:
-            route_points (numpy.ndarray): Array of (x, y) coordinates representing the route.
-            current_speed (float): Current speed of the vehicle in m/s.
-            vehicle_position (numpy.ndarray): Array of (x, y) coordinates representing the vehicle's position.
-            vehicle_heading (float): Current heading angle of the vehicle in radians.
-
-        Returns:
-            float: Computed steering angle in the range [-1.0, 1.0].
-        """
-        pass
-
-    def save_state(self):
-        """
-        Saves the current state of the controller. Useful during forecasting.
-        """
-        pass
-
-    def load_state(self):
-        """
-        Loads the previously saved state of the controller. Useful during forecasting.
-        """
-        pass
+from src.controllers.controller_base import ControllerBase
 
 
-class LateralPIDController(LateralController):
+class LateralPIDController(ControllerBase):
     """
     Lateral controller based on a Proportional-Integral-Derivative (PID) controller.
+
+    Adapted from https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/team_code/lateral_controller.py.
     """
 
     def __init__(self, config):
@@ -68,10 +36,6 @@ class LateralPIDController(LateralController):
         self.lateral_pid_maximum_lookahead_distance = (
             self.config.lateral_pid_maximum_lookahead_distance
         )
-
-        # The following lists are used as deques
-        self.error_history = []  # Sliding window to store past errors
-        self.saved_error_history = []  # Saved error history for state loading
 
     def step(
         self,
@@ -162,15 +126,3 @@ class LateralPIDController(LateralController):
         ).item()
 
         return steering
-
-    def save_state(self):
-        """
-        Saves the current state of the controller by copying the error history.
-        """
-        self.saved_error_history = self.error_history.copy()
-
-    def load_state(self):
-        """
-        Loads the previously saved state of the controller by restoring the saved error history.
-        """
-        self.error_history = self.saved_error_history.copy()

@@ -1,71 +1,21 @@
-"""
-This file holds class implementations for a longitudinal PID controller and a linear regression model as
-longitudinal controller.
-"""
+##!/usr/bin/env python3
+# @File: longitudinal_controller.py
+# @Description:
+# @CreatedTime: 2024/07/08
+# @Author: PDM-Lite
 
 import numpy as np
 
+from src.controllers.controller_base import ControllerBase
 
-class LongitudinalController:
+
+class LongitudinalPIDController(ControllerBase):
     """
-    Base class for longitudinal controller.
-    """
+    Longitudinal controller based on a Proportional-Integral-Derivative (PID) controller.
 
-    def __init__(self, config):
-        """
-        Constructor of the longitudinal controller, which saves the configuration object for the hyperparameters.
+    Adapted from https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/team_code/longitudinal_controller.py.
 
-        Args:
-            config (GlobalConfig): Object of the config for hyperparameters.
-        """
-        self.config = config
-
-    def get_throttle_and_brake(self, hazard_brake, target_speed, current_speed):
-        """
-        Get the throttle and brake values based on the target speed, current speed, and hazard brake condition.
-        This method is used to calculate the throttle / brake values for driving.
-
-        Args:
-            hazard_brake (bool): Flag indicating whether to apply hazard braking.
-            target_speed (float): The desired target speed in m/s.
-            current_speed (float): The current speed of the vehicle in m/s.
-
-        Returns:
-            tuple: A tuple containing the throttle and brake values.
-        """
-        pass
-
-    def get_throttle_extrapolation(self, target_speed, current_speed):
-        """
-        Get the throttle value for the given target speed and current speed, assuming no hazard brake condition.
-        This method is used for forecasting.
-
-        Args:
-            target_speed (float): The desired target speed in m/s.
-            current_speed (float): The current speed of the vehicle in m/s.
-
-        Returns:
-            float: The throttle value.
-        """
-        pass
-
-    def save(self):
-        """
-        Save the current state of the controller.
-        """
-        pass
-
-    def load(self):
-        """
-        Load the previously saved state of the controller.
-        """
-        pass
-
-
-class LongitudinalPIDController(LongitudinalController):
-    """
-    This class was used for the ablations. Currently, we use the linear regression controller for longitudinal
-    control by default.
+    This class was used for the ablations. Currently, the expert agent uses the linear regression controller for longitudinal control by default.
     """
 
     def __init__(self, config):
@@ -79,9 +29,6 @@ class LongitudinalPIDController(LongitudinalController):
         self.speed_error_scaling = self.config.longitudinal_pid_speed_error_scaling
         self.braking_ratio = self.config.longitudinal_pid_braking_ratio
         self.minimum_target_speed = self.config.longitudinal_pid_minimum_target_speed
-
-        self.speed_error_window = []
-        self.saved_speed_error_window = []
 
     def get_throttle_and_brake(self, hazard_brake, target_speed, current_speed):
         """
@@ -112,7 +59,7 @@ class LongitudinalPIDController(LongitudinalController):
 
         # Test if the speed is "much" larger than the target speed
         if current_speed / target_speed > self.braking_ratio:
-            self.speed_error_window = [0] * self.max_window_length
+            self.error_history = [0] * self.max_window_length
 
             throttle, brake = 0.0, True
             return throttle, brake
@@ -122,15 +69,15 @@ class LongitudinalPIDController(LongitudinalController):
             speed_error + speed_error * current_speed * self.speed_error_scaling
         )
 
-        self.speed_error_window.append(speed_error)
-        self.speed_error_window = self.speed_error_window[-self.max_window_length :]
+        self.error_history.append(speed_error)
+        self.error_history = self.error_history[-self.max_window_length :]
 
         derivative = (
             0
-            if len(self.speed_error_window) == 1
-            else self.speed_error_window[-1] - self.speed_error_window[-2]
+            if len(self.error_history) == 1
+            else self.error_history[-1] - self.error_history[-2]
         )
-        integral = np.mean(self.speed_error_window)
+        integral = np.mean(self.error_history)
 
         throttle = (
             self.proportional_gain * speed_error
@@ -154,22 +101,12 @@ class LongitudinalPIDController(LongitudinalController):
         """
         return self.get_throttle(False, target_speed, current_speed)
 
-    def save(self):
-        """
-        Save the current state of the PID controller.
-        """
-        self.saved_speed_error_window = self.speed_error_window.copy()
 
-    def load(self):
-        """
-        Load the previously saved state of the PID controller.
-        """
-        self.speed_error_window = self.saved_speed_error_window.copy()
-
-
-class LongitudinalLinearRegressionController(LongitudinalController):
+class LongitudinalLinearRegressionController(ControllerBase):
     """
     This class holds the linear regression module used for longitudinal control. It's used by default.
+
+    Adapted from https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/team_code/longitudinal_controller.py.
     """
 
     def __init__(self, config):
@@ -246,8 +183,8 @@ class LongitudinalLinearRegressionController(LongitudinalController):
         Returns:
             float: The throttle value.
         """
-        current_speed = current_speed * 3.6  # Convertion to km/h
-        target_speed = target_speed * 3.6  # Convertion to km/h
+        current_speed = current_speed * 3.6  # Convert to km/h
+        target_speed = target_speed * 3.6  # Convert to km/h
         params = self.params
         speed_error = target_speed - current_speed
 

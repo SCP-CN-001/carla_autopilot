@@ -9,6 +9,12 @@ The main changes include:
 
 ## Quick start
 
+### Download this Repository
+
+```shell
+git clone --recursive git@github.com:SCP-CN-001/carla_autopilot.git
+```
+
 ### Download Carla
 
 ```shell
@@ -23,6 +29,10 @@ ln -s CARLA_Leaderboard_20/CARLA_Leaderboard_20 ./
 
 ### Setup Python Environment
 
+```shell
+# TODO: add python environment setup
+```
+
 ### Run Expert Agent
 
 ```shell
@@ -32,5 +42,6 @@ cd CARLA_Leaderboard_20
 
 # start another terminal and run
 cd scripts
-./
+chmod +x L20_expert_control.sh
+./L20_expert_control.sh
 ```

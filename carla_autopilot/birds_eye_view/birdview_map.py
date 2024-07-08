@@ -16,7 +16,7 @@ import pygame
 from omegaconf import OmegaConf
 from traffic_light import TrafficLightHandler
 
-from carla_autopilot.utils.server_utils import CarlaServerManager
+from src.utils.server_utils import CarlaServerManager
 
 COLOR_WHITE = (255, 255, 255)
 

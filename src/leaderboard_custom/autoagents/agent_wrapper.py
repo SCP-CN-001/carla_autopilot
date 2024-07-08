@@ -7,11 +7,14 @@
 
 """
 Wrapper for autonomous agents required for tracking and checking of used sensors
+
+Adapted from:
+- https://github.com/carla-simulator/leaderboard/blob/leaderboard-2.0/leaderboard/autoagents/agent_wrapper.py
+- https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/leaderboard/leaderboard/autoagents/agent_wrapper_local.py
 """
 
 import math
 import os
-import time
 
 import carla
 from leaderboard.autoagents.autonomous_agent import Track
@@ -23,7 +26,6 @@ from leaderboard.envs.sensor_interface import (
     SpeedometerReader,
 )
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
-from srunner.scenariomanager.timer import GameTime
 
 DATAGEN = int(os.environ.get("DATAGEN", 0))
 

@@ -1,4 +1,13 @@
+##!/usr/bin/env python3
+# @File: cheater.py
+# @Description: A snippet to mark specific scenarios for the expert agent.
+# @CreatedTime: 2024/07/08
+# @Author: Yueyuan Li
+
+
 class Cheater:
+    """In PDM-Lite, the `CarlaDataProvider` was modified in place to store the `active_scenarios` list as a globally available variable. To improve the readability of the code, we created a `Cheater` class to avoid mixing customized code with the `srunner` library."""
+
     active_scenarios = []
 
     @staticmethod
@@ -7,7 +16,8 @@ class Cheater:
 
     @staticmethod
     def update(scenario_type, scenario_instance):
-        print(scenario_type)
+        """Detect and mark specific scenarios for the expert agent."""
+
         if scenario_type in ["ConstructionObstacle", "ConstructionObstacleTwoWays"]:
             traffic_warning = scenario_instance.other_actors[1]
             last_cone = scenario_instance.other_actors[-2]

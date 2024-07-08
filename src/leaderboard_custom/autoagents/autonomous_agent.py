@@ -4,7 +4,11 @@
 # For a copy, see <https://opensource.org/licenses/MIT>.
 
 """
-This module provides the base class for all autonomous agents
+This module provides the base class for all autonomous agents.
+
+Adapted from:
+- https://github.com/carla-simulator/leaderboard/blob/leaderboard-2.0/leaderboard/autoagents/autonomous_agent.py
+- https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/leaderboard/leaderboard/autoagents/autonomous_agent_local.py
 """
 
 
