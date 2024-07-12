@@ -18,7 +18,7 @@ class PrivilegedRoutePlanner:
     information like the next stop sign and the next traffic light.
     """
 
-    def __init__(self, config):
+    def __init__(self, configs):
         """
         Initialize the RoutePlanner object.
 
@@ -26,51 +26,49 @@ class PrivilegedRoutePlanner:
             config (GlobalConfig): Object of the config for hyperparameters.
         """
 
-        self.config = config
-
-        self.points_per_meter = self.config.points_per_meter
+        self.points_per_meter = configs.points_per_meter
         self.ego_vehicles_route_point_search_distance = (
-            self.config.ego_vehicles_route_point_search_distance
+            configs.ego_vehicles_route_point_search_distance
         )
         self.lane_shift_extension_length_for_yield_to_emergency_vehicle = (
-            self.config.lane_shift_extension_length_for_yield_to_emergency_vehicle
+            configs.lane_shift_extension_length_for_yield_to_emergency_vehicle
         )
-        self.transition_smoothness_distance = self.config.transition_smoothness_distance
+        self.transition_smoothness_distance = configs.transition_smoothness_distance
         self.route_shift_start_distance_invading_turn = (
-            self.config.route_shift_start_distance_invading_turn
+            configs.route_shift_start_distance_invading_turn
         )
         self.route_shift_end_distance_invading_turn = (
-            self.config.route_shift_end_distance_invading_turn
+            configs.route_shift_end_distance_invading_turn
         )
         self.fence_avoidance_margin_invading_turn = (
-            self.config.fence_avoidance_margin_invading_turn
+            configs.fence_avoidance_margin_invading_turn
         )
-        self.minimum_lane_width_threshold = self.config.minimum_lane_width_threshold
+        self.minimum_lane_width_threshold = configs.minimum_lane_width_threshold
         self.speed_limit_waypoints_spacing_check = (
-            self.config.speed_limit_waypoints_spacing_check
+            configs.speed_limit_waypoints_spacing_check
         )
         self.leading_vehicles_max_route_distance = (
-            self.config.leading_vehicles_max_route_distance
+            configs.leading_vehicles_max_route_distance
         )
         self.leading_vehicles_max_route_angle_distance = (
-            self.config.leading_vehicles_max_route_angle_distance
+            configs.leading_vehicles_max_route_angle_distance
         )
         self.leading_vehicles_maximum_detection_radius = (
-            self.config.leading_vehicles_maximum_detection_radius
+            configs.leading_vehicles_maximum_detection_radius
         )
         self.trailing_vehicles_max_route_distance = (
-            self.config.trailing_vehicles_max_route_distance
+            configs.trailing_vehicles_max_route_distance
         )
         self.trailing_vehicles_max_route_distance_lane_change = (
-            self.config.trailing_vehicles_max_route_distance_lane_change
+            configs.trailing_vehicles_max_route_distance_lane_change
         )
         self.tailing_vehicles_maximum_detection_radius = (
-            self.config.tailing_vehicles_maximum_detection_radius
+            configs.tailing_vehicles_maximum_detection_radius
         )
         self.max_distance_lane_change_trailing_vehicles = (
-            self.config.max_distance_lane_change_trailing_vehicles
+            configs.max_distance_lane_change_trailing_vehicles
         )
-        self.extra_route_length = self.config.extra_route_length
+        self.extra_route_length = configs.extra_route_length
 
         self.route_waypoints = []
         self.route_points = np.array([[]])

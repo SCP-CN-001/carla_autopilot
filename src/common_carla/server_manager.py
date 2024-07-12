@@ -20,7 +20,7 @@ def kill_carla():
     log.info("Kill Carla Servers!")
 
 
-class CarlaServerManager:
+class ServerManager:
     """
     Starts and stops a CARLA server.
 

@@ -1,6 +1,9 @@
-"""
-Kinematic bicycle model describing the motion of a car given its state and action.
-"""
+##!/usr/bin/env python3
+# @File: kinematic_bicycle_model.py
+# @Description: Kinematic bicycle model describing the motion of a car given its state and action.
+# @CreatedTime: 2024/07/09
+# @Author: PDM-Lite
+
 
 import numpy as np
 
@@ -8,28 +11,29 @@ import numpy as np
 class KinematicBicycleModel:
     """
     Kinematic bicycle model describing the motion of a car given its state and action.
+
+    Adapted from https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/team_code/kinematic_bicycle_model.py.
     """
 
-    def __init__(self, config):
+    def __init__(self, configs):
         """
         Kinematic bicycle model describing the motion of a car given its state and action.
         Tuned parameters are taken from World on Rails.
 
         Args:
-            config (GlobalConfig): Object of the config for hyperparameters.
+            configs (GlobalConfig): Object of the config for hyperparameters.
         """
-        self.config = config
 
-        self.time_step = self.config.time_step
-        self.front_wheel_base = self.config.front_wheel_base
-        self.rear_wheel_base = self.config.rear_wheel_base
-        self.steering_gain = self.config.steering_gain
-        self.brake_acceleration = self.config.brake_acceleration
-        self.throttle_acceleration = self.config.throttle_acceleration
-        self.throttle_values = self.config.throttle_values
-        self.brake_values = self.config.brake_values
+        self.time_step = configs.time_step
+        self.front_wheel_base = configs.front_wheel_base
+        self.rear_wheel_base = configs.rear_wheel_base
+        self.steering_gain = configs.steering_gain
+        self.brake_acceleration = configs.brake_acceleration
+        self.throttle_acceleration = configs.throttle_acceleration
+        self.throttle_values = configs.throttle_values
+        self.brake_values = configs.brake_values
         self.throttle_threshold_during_forecasting = (
-            self.config.throttle_threshold_during_forecasting
+            configs.throttle_threshold_during_forecasting
         )
 
     def forecast_other_vehicles(self, locations, headings, speeds, actions):

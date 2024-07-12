@@ -15,17 +15,18 @@ import carla
 import numpy as np
 import transfuser_utils as t_u
 from agents.navigation.local_planner import RoadOption
-from config import GlobalConfig
-from kinematic_bicycle_model import KinematicBicycleModel
 from lateral_controller import LateralPIDController
-from leaderboard_custom.autoagents import autonomous_agent
-from leaderboard_custom.scenarios.cheater import Cheater
 from longitudinal_controller import LongitudinalLinearRegressionController
 from nav_planner import RoutePlanner
-from privileged_route_planner import PrivilegedRoutePlanner
 from scenario_logger import ScenarioLogger
 from scipy.integrate import RK45
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
+
+from leaderboard_custom.autoagents import autonomous_agent
+from leaderboard_custom.scenarios.cheater import Cheater
+from src.config import GlobalConfig
+from src.planners.privileged_route_planner import PrivilegedRoutePlanner
+from src.utils.kinematic_bicycle_model import KinematicBicycleModel
 
 
 def get_entry_point():
@@ -252,34 +253,6 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                     actor.destroy()
 
         self.initialized = True
-
-    def sensors(self):
-        """
-        Returns a list of sensor specifications for the ego vehicle.
-
-        Each sensor specification is a dictionary containing the sensor type,
-        reading frequency, position, and other relevant parameters.
-
-        Returns:
-            list: A list of sensor specification dictionaries.
-        """
-        sensor_specs = [
-            {"type": "sensor.opendrive_map", "reading_frequency": 1e-6, "id": "hd_map"},
-            {
-                "type": "sensor.other.imu",
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.0,
-                "roll": 0.0,
-                "pitch": 0.0,
-                "yaw": 0.0,
-                "sensor_tick": 0.05,
-                "id": "imu",
-            },
-            {"type": "sensor.speedometer", "reading_frequency": 20, "id": "speed"},
-        ]
-
-        return sensor_specs
 
     def tick_autopilot(self, input_data):
         """
@@ -1373,82 +1346,6 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
 
         return steering_angle
 
-    def _compute_target_speed_idm(
-        self,
-        desired_speed,
-        leading_actor_length,
-        ego_speed,
-        leading_actor_speed,
-        distance_to_leading_actor,
-        s0=4.0,
-        T=0.5,
-    ):
-        """
-        Compute the target speed for the ego vehicle using the Intelligent Driver Model (IDM).
-
-        Args:
-            desired_speed (float): The desired speed of the ego vehicle.
-            leading_actor_length (float): The length of the leading actor (vehicle or obstacle).
-            ego_speed (float): The current speed of the ego vehicle.
-            leading_actor_speed (float): The speed of the leading actor.
-            distance_to_leading_actor (float): The distance to the leading actor.
-            s0 (float, optional): The minimum desired net distance.
-            T (float, optional): The desired time headway.
-
-        Returns:
-            float: The computed target speed for the ego vehicle.
-        """
-        a = self.config.idm_maximum_acceleration  # Maximum acceleration [m/s²]
-        b = (
-            self.config.idm_comfortable_braking_deceleration_high_speed
-            if ego_speed > self.config.idm_comfortable_braking_deceleration_threshold
-            else self.config.idm_comfortable_braking_deceleration_low_speed
-        )  # Comfortable deceleration [m/s²]
-        delta = self.config.idm_acceleration_exponent  # Acceleration exponent
-
-        t_bound = self.config.idm_t_bound
-
-        def idm_equations(t, x):
-            """
-            Differential equations for the Intelligent Driver Model.
-
-            Args:
-                t (float): Time.
-                x (list): State variables [position, speed].
-
-            Returns:
-                list: Derivatives of the state variables.
-            """
-            ego_position, ego_speed = x
-
-            speed_diff = ego_speed - leading_actor_speed
-            s_star = s0 + ego_speed * T + ego_speed * speed_diff / 2.0 / np.sqrt(a * b)
-            # The maximum is needed to avoid numerical unstabilities
-            s = max(
-                0.1,
-                distance_to_leading_actor
-                + t * leading_actor_speed
-                - ego_position
-                - leading_actor_length,
-            )
-            dvdt = a * (1.0 - (ego_speed / desired_speed) ** delta - (s_star / s) ** 2)
-
-            return [ego_speed, dvdt]
-
-        # Set the initial conditions
-        y0 = [0.0, ego_speed]
-
-        # Integrate the differential equations using RK45
-        rk45 = RK45(fun=idm_equations, t0=0.0, y0=y0, t_bound=t_bound)
-        while rk45.status == "running":
-            rk45.step()
-
-        # The target speed is the final speed obtained from the integration
-        target_speed = rk45.y[1]
-
-        # Clip the target speed to non-negative values
-        return np.clip(target_speed, 0, np.inf)
-
     def is_near_lane_change(self, ego_velocity, route_points):
         """
         Computes if the ego agent is/was close to a lane change maneuver.
@@ -1658,277 +1555,6 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
                             )
 
         return predicted_bounding_boxes
-
-    def compute_target_speed_wrt_leading_vehicle(
-        self,
-        initial_target_speed,
-        predicted_bounding_boxes,
-        near_lane_change,
-        ego_location,
-        rear_vehicle_ids,
-        leading_vehicle_ids,
-        speed_reduced_by_obj,
-        plant,
-    ):
-        """
-        Compute the target speed for the ego vehicle considering the leading vehicle.
-
-        Args:
-            initial_target_speed (float): The initial target speed for the ego vehicle.
-            predicted_bounding_boxes (dict): A dictionary mapping actor IDs to lists of predicted bounding boxes.
-            near_lane_change (bool): Whether the ego vehicle is near a lane change maneuver.
-            ego_location (carla.Location): The current location of the ego vehicle.
-            rear_vehicle_ids (list): A list of IDs for vehicles behind the ego vehicle.
-            leading_vehicle_ids (list): A list of IDs for vehicles in front of the ego vehicle.
-            speed_reduced_by_obj (list or None): A list containing [reduced speed, object type, object ID, distance]
-                for the object that caused the most speed reduction, or None if no speed reduction.
-            plant (bool): Whether to use plant.
-
-        Returns:
-            float: The target speed considering the leading vehicle.
-        """
-        target_speed_wrt_leading_vehicle = initial_target_speed
-
-        if not plant:
-            for vehicle_id, _ in predicted_bounding_boxes.items():
-                if vehicle_id in leading_vehicle_ids and not near_lane_change:
-                    # Vehicle is in front of the ego vehicle
-                    ego_speed = self._vehicle.get_velocity().length()
-                    vehicle = self._world.get_actor(vehicle_id)
-                    other_speed = vehicle.get_velocity().length()
-                    distance_to_vehicle = ego_location.distance(vehicle.get_location())
-
-                    # Compute the target speed using the IDM
-                    target_speed_wrt_leading_vehicle = min(
-                        target_speed_wrt_leading_vehicle,
-                        self._compute_target_speed_idm(
-                            desired_speed=initial_target_speed,
-                            leading_actor_length=vehicle.bounding_box.extent.x * 2,
-                            ego_speed=ego_speed,
-                            leading_actor_speed=other_speed,
-                            distance_to_leading_actor=distance_to_vehicle,
-                            s0=self.config.idm_leading_vehicle_minimum_distance,
-                            T=self.config.idm_leading_vehicle_time_headway,
-                        ),
-                    )
-
-                    # Update the object causing the most speed reduction
-                    if (
-                        speed_reduced_by_obj is None
-                        or speed_reduced_by_obj[0] > target_speed_wrt_leading_vehicle
-                    ):
-                        speed_reduced_by_obj = [
-                            target_speed_wrt_leading_vehicle,
-                            vehicle.type_id,
-                            vehicle.id,
-                            distance_to_vehicle,
-                        ]
-
-            if self.visualize == 1:
-                for vehicle_id in predicted_bounding_boxes.keys():
-                    # check if vehicle is in front of the ego vehicle
-                    if vehicle_id in leading_vehicle_ids and not near_lane_change:
-                        extent = vehicle.bounding_box.extent
-                        bb = carla.BoundingBox(vehicle.get_location(), extent)
-                        bb.rotation = carla.Rotation(
-                            pitch=0, yaw=vehicle.get_transform().rotation.yaw, roll=0
-                        )
-                        self._world.debug.draw_box(
-                            box=bb,
-                            rotation=bb.rotation,
-                            thickness=0.5,
-                            color=self.config.leading_vehicle_color,
-                            life_time=self.config.draw_life_time,
-                        )
-                    elif vehicle_id in rear_vehicle_ids:
-                        vehicle = self._world.get_actor(vehicle_id)
-                        extent = vehicle.bounding_box.extent
-                        bb = carla.BoundingBox(vehicle.get_location(), extent)
-                        bb.rotation = carla.Rotation(
-                            pitch=0, yaw=vehicle.get_transform().rotation.yaw, roll=0
-                        )
-                        self._world.debug.draw_box(
-                            box=bb,
-                            rotation=bb.rotation,
-                            thickness=0.5,
-                            color=self.config.trailing_vehicle_color,
-                            life_time=self.config.draw_life_time,
-                        )
-
-        return target_speed_wrt_leading_vehicle, speed_reduced_by_obj
-
-    def compute_target_speeds_wrt_all_actors(
-        self,
-        initial_target_speed,
-        ego_bounding_boxes,
-        predicted_bounding_boxes,
-        near_lane_change,
-        leading_vehicle_ids,
-        rear_vehicle_ids,
-        speed_reduced_by_obj,
-        nearby_walkers,
-        nearby_walkers_ids,
-    ):
-        """
-        Compute the target speeds for the ego vehicle considering all actors (vehicles, bicycles,
-        and pedestrians) by checking for intersecting bounding boxes.
-
-        Args:
-            initial_target_speed (float): The initial target speed for the ego vehicle.
-            ego_bounding_boxes (list): A list of bounding boxes for the ego vehicle at different future frames.
-            predicted_bounding_boxes (dict): A dictionary mapping actor IDs to lists of predicted bounding boxes.
-            near_lane_change (bool): Whether the ego vehicle is near a lane change maneuver.
-            leading_vehicle_ids (list): A list of IDs for vehicles in front of the ego vehicle.
-            rear_vehicle_ids (list): A list of IDs for vehicles behind the ego vehicle.
-            speed_reduced_by_obj (list or None): A list containing [reduced speed, object type,
-                object ID, distance] for the object that caused the most speed reduction, or None if
-                no speed reduction.
-            nearby_walkers (dict): A list of predicted bounding boxes of nearby pedestrians.
-            nearby_walkers_ids (list): A list of IDs for nearby pedestrians.
-
-        Returns:
-            tuple: A tuple containing the target speeds for bicycles, pedestrians, vehicles, and the updated
-                speed_reduced_by_obj list.
-        """
-        target_speed_bicycle = initial_target_speed
-        target_speed_pedestrian = initial_target_speed
-        target_speed_vehicle = initial_target_speed
-        ego_vehicle_location = self._vehicle.get_location()
-        hazard_color = self.config.ego_vehicle_forecasted_bbs_hazard_color
-        normal_color = self.config.ego_vehicle_forecasted_bbs_normal_color
-        color = normal_color
-
-        # Iterate over the ego vehicle's bounding boxes and predicted bounding boxes of other actors
-        for i, ego_bounding_box in enumerate(ego_bounding_boxes):
-            for vehicle_id, bounding_boxes in predicted_bounding_boxes.items():
-                # Skip leading and rear vehicles if not near a lane change
-                if vehicle_id in leading_vehicle_ids and not near_lane_change:
-                    continue
-                elif vehicle_id in rear_vehicle_ids and not near_lane_change:
-                    continue
-                else:
-                    # Check if the ego bounding box intersects with the predicted bounding box of the actor
-                    intersects_with_ego = self.check_obb_intersection(
-                        ego_bounding_box, bounding_boxes[i]
-                    )
-                    ego_speed = self._vehicle.get_velocity().length()
-
-                    if intersects_with_ego:
-                        blocking_actor = self._world.get_actor(vehicle_id)
-
-                        # Handle the case when the blocking actor is a bicycle
-                        if (
-                            "base_type" in blocking_actor.attributes
-                            and blocking_actor.attributes["base_type"] == "bicycle"
-                        ):
-                            other_speed = blocking_actor.get_velocity().length()
-                            distance_to_actor = ego_vehicle_location.distance(
-                                blocking_actor.get_location()
-                            )
-
-                            # Compute the target speed for bicycles using the IDM
-                            target_speed_bicycle = min(
-                                target_speed_bicycle,
-                                self._compute_target_speed_idm(
-                                    desired_speed=initial_target_speed,
-                                    leading_actor_length=blocking_actor.bounding_box.extent.x
-                                    * 2,
-                                    ego_speed=ego_speed,
-                                    leading_actor_speed=other_speed,
-                                    distance_to_leading_actor=distance_to_actor,
-                                    s0=self.config.idm_bicycle_minimum_distance,
-                                    T=self.config.idm_bicycle_desired_time_headway,
-                                ),
-                            )
-
-                            # Update the object causing the most speed reduction
-                            if (
-                                speed_reduced_by_obj is None
-                                or speed_reduced_by_obj[0] > target_speed_bicycle
-                            ):
-                                speed_reduced_by_obj = [
-                                    target_speed_bicycle,
-                                    blocking_actor.type_id,
-                                    blocking_actor.id,
-                                    distance_to_actor,
-                                ]
-
-                        # Handle the case when the blocking actor is not a bicycle
-                        else:
-                            self.vehicle_hazard = True  # Set the vehicle hazard flag
-                            self.vehicle_affecting_id = vehicle_id  # Store the ID of the vehicle causing the hazard
-                            color = hazard_color  # Change the following colors from green to red (no hazard to hazard)
-                            target_speed_vehicle = (
-                                0  # Set the target speed for vehicles to zero
-                            )
-                            distance_to_actor = blocking_actor.get_location().distance(
-                                ego_vehicle_location
-                            )
-
-                            # Update the object causing the most speed reduction
-                            if (
-                                speed_reduced_by_obj is None
-                                or speed_reduced_by_obj[0] > target_speed_vehicle
-                            ):
-                                speed_reduced_by_obj = [
-                                    target_speed_vehicle,
-                                    blocking_actor.type_id,
-                                    blocking_actor.id,
-                                    distance_to_actor,
-                                ]
-
-            # Iterate over nearby pedestrians and check for intersections with the ego bounding box
-            for pedestrian_bb, pedestrian_id in zip(nearby_walkers, nearby_walkers_ids):
-                if self.check_obb_intersection(ego_bounding_box, pedestrian_bb[i]):
-                    color = hazard_color
-                    ego_speed = self._vehicle.get_velocity().length()
-                    blocking_actor = self._world.get_actor(pedestrian_id)
-                    distance_to_actor = ego_vehicle_location.distance(
-                        blocking_actor.get_location()
-                    )
-
-                    # Compute the target speed for pedestrians using the IDM
-                    target_speed_pedestrian = min(
-                        target_speed_pedestrian,
-                        self._compute_target_speed_idm(
-                            desired_speed=initial_target_speed,
-                            leading_actor_length=0.5
-                            + self._vehicle.bounding_box.extent.x,
-                            ego_speed=ego_speed,
-                            leading_actor_speed=0.0,
-                            distance_to_leading_actor=distance_to_actor,
-                            s0=self.config.idm_pedestrian_minimum_distance,
-                            T=self.config.idm_pedestrian_desired_time_headway,
-                        ),
-                    )
-
-                    # Update the object causing the most speed reduction
-                    if (
-                        speed_reduced_by_obj is None
-                        or speed_reduced_by_obj[0] > target_speed_pedestrian
-                    ):
-                        speed_reduced_by_obj = [
-                            target_speed_pedestrian,
-                            blocking_actor.type_id,
-                            blocking_actor.id,
-                            distance_to_actor,
-                        ]
-
-            if self.visualize == 1:
-                self._world.debug.draw_box(
-                    box=ego_bounding_box,
-                    rotation=ego_bounding_box.rotation,
-                    thickness=0.1,
-                    color=color,
-                    life_time=self.config.draw_life_time,
-                )
-
-        return (
-            target_speed_bicycle,
-            target_speed_pedestrian,
-            target_speed_vehicle,
-            speed_reduced_by_obj,
-        )
 
     def get_brake_and_target_speed(
         self,
@@ -2571,36 +2197,6 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
         # Return whether the ego vehicle is affected by the stop sign and the adjusted target speed
         return target_speed
 
-    def _dot_product(self, vector1, vector2):
-        """
-        Calculate the dot product of two vectors.
-
-        Args:
-            vector1 (carla.Vector3D): The first vector.
-            vector2 (carla.Vector3D): The second vector.
-
-        Returns:
-            float: The dot product of the two vectors.
-        """
-        return vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z
-
-    def cross_product(self, vector1, vector2):
-        """
-        Calculate the cross product of two vectors.
-
-        Args:
-            vector1 (carla.Vector3D): The first vector.
-            vector2 (carla.Vector3D): The second vector.
-
-        Returns:
-            carla.Vector3D: The cross product of the two vectors.
-        """
-        x = vector1.y * vector2.z - vector1.z * vector2.y
-        y = vector1.z * vector2.x - vector1.x * vector2.z
-        z = vector1.x * vector2.y - vector1.y * vector2.x
-
-        return carla.Vector3D(x=x, y=y, z=z)
-
     def get_separating_plane(self, relative_position, plane_normal, obb1, obb2):
         """
         Check if there is a separating plane between two oriented bounding boxes (OBBs).
@@ -2773,36 +2369,6 @@ class AutoPilot(autonomous_agent.AutonomousAgent):
 
         # If no separating plane is found, the OBBs intersect
         return True
-
-    def _get_angle_to(self, current_position, current_heading, target_position):
-        """
-        Calculate the angle (in degrees) from the current position and heading to a target position.
-
-        Args:
-            current_position (list): A list of (x, y) coordinates representing the current position.
-            current_heading (float): The current heading angle in radians.
-            target_position (tuple or list): A tuple or list of (x, y) coordinates representing the target position.
-
-        Returns:
-            float: The angle (in degrees) from the current position and heading to the target position.
-        """
-        cos_heading = math.cos(current_heading)
-        sin_heading = math.sin(current_heading)
-
-        # Calculate the vector from the current position to the target position
-        position_delta = target_position - current_position
-
-        # Calculate the dot product of the position delta vector and the current heading vector
-        aim_x = cos_heading * position_delta[0] + sin_heading * position_delta[1]
-        aim_y = -sin_heading * position_delta[0] + cos_heading * position_delta[1]
-
-        # Calculate the angle (in radians) from the current heading to the target position
-        angle_radians = -math.atan2(-aim_y, aim_x)
-
-        # Convert the angle from radians to degrees
-        angle_degrees = np.float_(math.degrees(angle_radians))
-
-        return angle_degrees
 
     def get_nearby_object(self, ego_vehicle_position, all_actors, search_radius):
         """

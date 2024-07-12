@@ -33,19 +33,21 @@ def get_relative_position(pose_origin, pose_to_transform):
     return relative_position
 
 
-def get_transform_2D(data: np.ndarray, translation: np.ndarray, yaw: float):
+def get_transform_2D(data: np.ndarray, translation: np.ndarray, angle: float):
     """Transform 2D points into a new coordinate system.
 
     Args:
         data (np.ndarray): 2D points (N,2)
         translation (np.ndarray): Translation in meters (2,)
-        yaw (float): Yaw angle in radians
+        angle (float): Angle in radians
     """
+    cos_angle = np.cos(angle)
+    sin_angle = np.sin(angle)
 
     rotation_matrix = np.array(
         [
-            [np.cos(yaw), -np.sin(yaw)],
-            [np.sin(yaw), np.cos(yaw)],
+            [cos_angle, -sin_angle],
+            [sin_angle, cos_angle],
         ]
     )
 
@@ -54,19 +56,21 @@ def get_transform_2D(data: np.ndarray, translation: np.ndarray, yaw: float):
     return transformed_data
 
 
-def get_transform_3D(data: np.ndarray, translation: np.ndarray, yaw: float):
+def get_transform_3D(data: np.ndarray, translation: np.ndarray, angle: float):
     """Transform 3D points into a new coordinate system.
 
     Args:
         data (np.ndarray): 3D points (N,3)
         translation (np.ndarray): Translation in meters (3,)
-        yaw (float): Yaw angle in radians
+        angle (float): Angle in radians
     """
+    cos_angle = np.cos(angle)
+    sin_angle = np.sin(angle)
 
     rotation_matrix = np.array(
         [
-            [np.cos(yaw), -np.sin(yaw), 0.0],
-            [np.sin(yaw), np.cos(yaw), 0.0],
+            [cos_angle, -sin_angle, 0.0],
+            [sin_angle, cos_angle, 0.0],
             [0.0, 0.0, 1.0],
         ]
     )
@@ -74,6 +78,34 @@ def get_transform_3D(data: np.ndarray, translation: np.ndarray, yaw: float):
     transformed_data = (data - translation) @ rotation_matrix
 
     return transformed_data
+
+
+def get_angle_by_position(current_position, current_angle, target_position):
+    """
+    Calculate the angle (in radians) from the current position and heading to a target position.
+
+    Args:
+        current_position (list): A list of (x, y) coordinates representing the current position.
+        current_angle (float): The current heading angle in radians.
+        target_position (tuple or list): A tuple or list of (x, y) coordinates representing the target position.
+
+    Returns:
+        float: The angle (in radians) from the current position and heading to the target position.
+    """
+    cos_angle = np.cos(current_angle)
+    sin_angle = np.sin(current_angle)
+
+    # Calculate the vector from the current position to the target position
+    delta_position = target_position - current_position
+
+    # Calculate the dot product of the position delta vector and the current heading vector
+    target_x = cos_angle * delta_position[0] + sin_angle * delta_position[1]
+    target_y = -sin_angle * delta_position[0] + cos_angle * delta_position[1]
+
+    # Calculate the angle (in radians) from the current heading to the target position
+    angle_radians = -np.arctan2(-target_y, target_x)
+
+    return angle_radians
 
 
 def preprocess_compass(compass):

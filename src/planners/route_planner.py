@@ -1,6 +1,8 @@
-"""
-This file implements the class used for data generation for the high level commands and the target waypoints
-"""
+##!/usr/bin/env python3
+# @File: route_planner.py
+# @Description: This file implements the class used for data generation for the high level commands and the target waypoints.
+# @CreatedTime: 2024/07/12
+# @Author: PDM-Lite
 
 import math
 import warnings
