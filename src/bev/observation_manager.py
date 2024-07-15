@@ -1,7 +1,9 @@
-"""
-Utilities to render bird's eye view semantic segmentation maps.
-Code adapted from https://github.com/zhejz/carla-roach
-"""
+##!/usr/bin/env python3
+# @File: chauffeurnet.py
+# @Description:
+# @CreatedTime: 2024/07/15
+# @Author: Roach
+
 
 import os
 from collections import deque
@@ -10,9 +12,9 @@ import carla
 import cv2 as cv
 import h5py
 import numpy as np
-from birds_eye_view.obs_manager import ObsManagerBase
-from birds_eye_view.traffic_light import TrafficLightHandler
 from gymnasium import spaces
+
+from src.common_carla.traffic_light import TrafficLightHandler
 
 COLOR_BLACK = (0, 0, 0)
 COLOR_RED = (255, 0, 0)
@@ -41,9 +43,10 @@ def tint(color, factor):
     return (r, g, b)
 
 
-class ObsManager(ObsManagerBase):
+class ObservationManager:
     """
-    Generates bev semantic segmentation maps.
+    Utilities to render bird's eye view semantic segmentation maps.
+    Code adapted from https://github.com/zhejz/carla-roach/blob/main/carla_gym/core/obs_manager/birdview/chauffeurnet.py
     """
 
     def __init__(self, obs_configs, config):
@@ -71,7 +74,7 @@ class ObsManager(ObsManagerBase):
             os.path.dirname(os.path.abspath(__file__)), "../../data/maps"
         )
 
-        super().__init__()
+        self._define_obs_space()
 
     def _define_obs_space(self):
         self.obs_space = spaces.Dict(
@@ -105,15 +108,10 @@ class ObsManager(ObsManagerBase):
             self._lane_marking_white_broken = np.array(
                 hf["lane_marking_white_broken"], dtype=np.uint8
             )
-            # self._shoulder = np.array(hf['shoulder'], dtype=np.uint8)
-            # self._parking = np.array(hf['parking'], dtype=np.uint8)
             self._sidewalk = np.array(hf["sidewalk"], dtype=np.uint8)
-            # self._lane_marking_yellow_broken = np.array(hf['lane_marking_yellow_broken'], dtype=np.uint8)
-            # self._lane_marking_yellow_solid = np.array(hf['lane_marking_yellow_solid'], dtype=np.uint8)
-            # self._lane_marking_white_solid = np.array(hf['lane_marking_white_solid'], dtype=np.uint8)
 
             self._world_offset = np.array(
-                hf.attrs["world_offset_in_meters"], dtype=np.float32
+                hf.attrs["world_offset_in_meters"], dtype=np.float64
             )
             # in case they aren't close, print them to know what values they should be
             if not np.isclose(
@@ -125,9 +123,6 @@ class ObsManager(ObsManagerBase):
             )
 
         self._distance_threshold = np.ceil(self._width / self._pixels_per_meter)
-        # dilate road mask, lbc draw road polygon with 10px boarder
-        # kernel = np.ones((11, 11), np.uint8)
-        # self._road = cv.dilate(self._road, kernel, iterations=1)
 
         TrafficLightHandler.reset(self._world)
 
@@ -139,8 +134,6 @@ class ObsManager(ObsManagerBase):
             bb_loc = carla.Location(stop_sign.trigger_volume.location)
             bb_ext = carla.Vector3D(stop_sign.trigger_volume.extent)
             # Workaround since the extents of trigger_volumes of stop signs are often wrong
-            # bb_ext.x = max(bb_ext.x, bb_ext.y)
-            # bb_ext.y = max(bb_ext.x, bb_ext.y)
             bb_ext.x = 1.5
             bb_ext.y = 1.5
             trans = stop_sign.get_transform()
@@ -165,7 +158,7 @@ class ObsManager(ObsManagerBase):
         lane_mask_broken = cv.warpAffine(
             self._lane_marking_white_broken, m_warp, (self._width, self._width)
         ).astype(np.bool_)
-        image = np.zeros([self._width, self._width, 4], dtype=np.float32)
+        image = np.zeros([self._width, self._width, 4], dtype=np.float64)
         alpha = 0.33
         image[road_mask] = (40, 40, 40, 0.1)
         image[lane_mask_all] = (255, 255, 0, alpha)
@@ -252,13 +245,13 @@ class ObsManager(ObsManagerBase):
             )
             walkers = self._get_surrounding_actors(walker_bbox_list, is_within_distance)
 
-        tl_green = TrafficLightHandler.get_stopline_vtx(
+        tl_green = TrafficLightHandler.get_stopline_vertices(
             ev_loc, 0, self._distance_threshold, close_traffic_lights
         )
-        tl_yellow = TrafficLightHandler.get_stopline_vtx(
+        tl_yellow = TrafficLightHandler.get_stopline_vertices(
             ev_loc, 1, self._distance_threshold, close_traffic_lights
         )
-        tl_red = TrafficLightHandler.get_stopline_vtx(
+        tl_red = TrafficLightHandler.get_stopline_vertices(
             ev_loc, 2, self._distance_threshold, close_traffic_lights
         )
         stops = self._get_stops(self.criteria_stop)
@@ -336,7 +329,7 @@ class ObsManager(ObsManagerBase):
         c_all[vehicle_masks[-1]] = 9
         c_all[walker_masks[-1]] = 10
 
-        # Align with LiDAR voxelgrid
+        # Align with LiDAR voxel grid
         c_all = np.rot90(c_all, k=-1)
 
         obs_dict = {"bev_semantic_classes": c_all}
@@ -453,10 +446,10 @@ class ObsManager(ObsManagerBase):
         )
 
         src_pts = np.stack((bottom_left, top_left, top_right), axis=0).astype(
-            np.float32
+            np.float64
         )
         dst_pts = np.array(
-            [[0, self._width - 1], [0, 0], [self._width - 1, 0]], dtype=np.float32
+            [[0, self._width - 1], [0, 0], [self._width - 1, 0]], dtype=np.float64
         )
         return cv.getAffineTransform(src_pts, dst_pts)
 
@@ -466,9 +459,9 @@ class ObsManager(ObsManagerBase):
         y = self._pixels_per_meter * (location.y - self._world_offset[1])
 
         if projective:
-            p = np.array([x, y, 1], dtype=np.float32)
+            p = np.array([x, y, 1], dtype=np.float64)
         else:
-            p = np.array([x, y], dtype=np.float32)
+            p = np.array([x, y], dtype=np.float64)
         return p
 
     def _world_to_pixel_width(self, width):

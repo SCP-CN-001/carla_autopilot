@@ -3,7 +3,7 @@ from shapely.geometry import Polygon
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
 
-def get_route_polygon(planner, max_distance) -> Polygon:
+def get_route_polygon(planner, max_distance, offset=0.0) -> Polygon:
     list_points = []
 
     ego_vehicle = CarlaDataProvider.get_hero_actor()
@@ -11,8 +11,8 @@ def get_route_polygon(planner, max_distance) -> Polygon:
     ego_location = ego_transform.location
 
     extent_y = ego_vehicle.bounding_box.extent.y
-    right_extent = extent_y
-    left_extent = -extent_y
+    right_extent = extent_y + offset
+    left_extent = -extent_y + offset
     right_vector = ego_transform.get_right_vector()
 
     right_location = carla.Location(

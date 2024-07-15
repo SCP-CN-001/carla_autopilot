@@ -1532,35 +1532,6 @@ class ExpertAgent(AutoPilot):
         self._use_bbs_detection = False
         self._offset = 0
 
-        def get_route_polygon():
-            route_bb = []
-            extent_y = self._vehicle.bounding_box.extent.y
-            r_ext = extent_y + self._offset
-            l_ext = -extent_y + self._offset
-            r_vec = ego_transform.get_right_vector()
-            p1 = ego_location + carla.Location(r_ext * r_vec.x, r_ext * r_vec.y)
-            p2 = ego_location + carla.Location(l_ext * r_vec.x, l_ext * r_vec.y)
-            route_bb.extend([[p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z]])
-
-            for wp, _ in self._local_planner.get_plan():
-                if ego_location.distance(wp.transform.location) > max_distance:
-                    break
-
-                r_vec = wp.transform.get_right_vector()
-                p1 = wp.transform.location + carla.Location(
-                    r_ext * r_vec.x, r_ext * r_vec.y
-                )
-                p2 = wp.transform.location + carla.Location(
-                    l_ext * r_vec.x, l_ext * r_vec.y
-                )
-                route_bb.extend([[p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z]])
-
-            # Two points don't create a polygon, nothing to check
-            if len(route_bb) < 3:
-                return None
-
-            return Polygon(route_bb)
-
         if not vehicle_list:
             vehicle_list = self._world.get_actors().filter("*vehicle*")
 
