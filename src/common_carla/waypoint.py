@@ -24,6 +24,7 @@ def get_next_waypoints():
         current_waypoint = [ego_waypoint]
         next_waypoints = []
 
+        # https://github.com/carla-simulator/carla/issues/2511#issuecomment-597230746
         while current_road_id == next_road_id and current_lane_id == next_lane_id:
             # Get a list of waypoints at a certain approximate distance.
             list_next_waypoints = current_waypoint[0].next(distance=1)

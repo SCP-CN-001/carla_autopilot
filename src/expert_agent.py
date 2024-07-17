@@ -6,6 +6,7 @@
 
 
 import logging
+import math
 from collections import deque
 
 import carla
@@ -14,11 +15,19 @@ from leaderboard.autoagents.autonomous_agent import AutonomousAgent
 from scipy.integrate import RK45
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
+from src.common_carla.actor import get_horizontal_distance
+from src.common_carla.route import (
+    get_previous_road_lane_ids,
+    is_near_lane_change,
+    is_overtaking_path_clear,
+    sort_scenarios_by_distance,
+)
 from src.common_carla.traffic_light import get_before_traffic_light_waypoints
 from src.controllers import LateralPIDController, LongitudinalLinearRegressionController
+from src.leaderboard_custom.scenarios.cheater import Cheater
 from src.planners.privileged_route_planner import PrivilegedRoutePlanner
 from src.planners.route_planner import RoutePlanner
-from src.utils.geometry import get_angle_by_position
+from src.utils.geometry import get_angle_by_position, normalize_angle
 from src.utils.kinematic_bicycle_model import KinematicBicycleModel
 
 
@@ -85,6 +94,9 @@ class ExpertAgent(AutonomousAgent):
         self.next_commands.append(4)
         self.target_point_prev = [1e5, 1e5, 1e5]
 
+        # To avoid failing the ActorBlockedTest, the agent has to move at least 0.1 m/s every 179 ticks
+        self.ego_blocked_for_ticks = 0
+
         # Setup controllers
         self.longitudinal_controller = LongitudinalLinearRegressionController(
             configs.longitudinal_controller
@@ -104,7 +116,7 @@ class ExpertAgent(AutonomousAgent):
         self.angle = 0.0
 
         self._reset_flags()
-        self.junction = False
+        self.is_junction = False
         self.aim_wp = None  # Waypoint the expert is steering towards
         self.remaining_route = None  # Remaining route
         self.remaining_route_original = None  # Remaining original route
@@ -124,7 +136,7 @@ class ExpertAgent(AutonomousAgent):
                 center, waypoints = get_before_traffic_light_waypoints(
                     actor, self.world_map
                 )
-                self.list_traffic_lights.append((actor, center, waypoints))
+                self.traffic_light_list.append((actor, center, waypoints))
 
         # Remove bugged 2-wheelers
         # https://github.com/carla-simulator/carla/issues/3670
@@ -136,6 +148,24 @@ class ExpertAgent(AutonomousAgent):
 
     def sensors(self):
         return
+
+    def get_ego_state(self, input_data):
+        # Get the vehicle's speed from its velocity vector
+        speed = self.ego_vehicle.get_velocity().length()
+
+        # Checks the compass for Nans and rotates it into the default CARLA coordinate system with range [-pi,pi].
+        compass = input_data["imu"][1][-1]
+        if math.isnan(compass):
+            compass = 0.0
+        # The minus 90.0 degree is because the compass sensor uses a different
+        # coordinate system then CARLA. Check the coordinate_sytems.txt file
+        compass = normalize_angle(compass - np.deg2rad(90.0))
+
+        # Get the vehicle's position from its location
+        position = self.ego_vehicle.get_location()
+        gps = np.array([position.x, position.y, position.z])
+
+        return gps, speed, compass
 
     def run_step(self, input_data):
         return
@@ -158,7 +188,7 @@ class ExpertAgent(AutonomousAgent):
         self.walker_close = False
 
     def _manage_route_obstacle_scenarios(
-        self, target_speed, route_waypoints, list_vehicles, route_points
+        self, ego_speed, target_speed, route_waypoints, vehicle_list, route_points
     ):
         """This method handles various obstacle and scenario situations that may arise during navigation.
 
@@ -180,97 +210,407 @@ class ExpertAgent(AutonomousAgent):
         Args:
             target_speed (float): The current target speed of the ego vehicle.
             route_waypoints (list): A list of waypoints representing the current route.
-            list_vehicles (list): A list of all vehicles in the simulation.
+            vehicle_list (list): A list of all vehicles in the simulation.
             route_points (numpy.ndarray): A numpy array containing the current route points.
 
         Returns:
             tuple: A tuple containing the updated target speed, a boolean indicating whether to keep driving,
                 and a list containing information about a potential decreased target speed due to an object.
         """
+        keep_driving = False
+        speed_reduced_by_obj = [
+            target_speed,
+            None,
+            None,
+            None,
+        ]  # [target_speed, type, id, distance]
 
-        def compute_min_time_for_distance(distance, target_speed, ego_speed):
-            """
-            Computes the minimum time the ego vehicle needs to travel a given distance.
+        # Remove scenarios that ended with a scenario timeout
+        active_scenarios = Cheater.active_scenarios.copy()
+        for i, (scenario_type, scenario_data) in enumerate(active_scenarios):
+            first_actor, last_actor = scenario_data[:2]
+            if not first_actor.is_alive or (
+                last_actor is not None and not last_actor.is_alive
+            ):
+                Cheater.active_scenarios.remove(active_scenarios[i])
 
-            Args:
-                distance (float): The distance to be traveled.
-                target_speed (float): The target speed of the ego vehicle.
-                ego_speed (float): The current speed of the ego vehicle.
+        # Only continue if there are some active scenarios available
+        if len(Cheater.active_scenarios) != 0:
+            ego_location = self.ego_vehicle.get_location()
 
-            Returns:
-                float: The minimum time needed to travel the given distance.
-            """
-            min_time_needed = 0.0
-            remaining_distance = distance
-            current_speed = ego_speed
+            # Sort the scenarios by distance if there is more than one active scenario
+            if len(Cheater.active_scenarios) != 1:
+                sort_scenarios_by_distance(ego_location)
 
-            # Iterate over time steps until the distance is covered
-            while True:
-                # Takes less than a tick to cover remaining_distance with current_speed
-                if remaining_distance - current_speed * self.configs.frequency < 0:
-                    break
+            scenario_type, scenario_data = Cheater.active_scenarios[0]
 
-                remaining_distance -= current_speed * self.configs.frequency
-                min_time_needed += self.configs.frequency
+            if scenario_type == "InvadingTurn":
+                first_cone, last_cone, offset = scenario_data
 
-                # Values from kinematic bicycle model
-                normalized_speed = current_speed / 120.0
-                speed_change_params = (
-                    self.configs.compute_min_time_to_cover_distance_params
-                )
-                speed_change = np.clip(
-                    speed_change_params[0]
-                    + normalized_speed * speed_change_params[1]
-                    + speed_change_params[2] * normalized_speed**2
-                    + speed_change_params[3] * normalized_speed**3,
-                    0.0,
-                    np.inf,
-                )
-                current_speed = np.clip(
-                    120 * (normalized_speed + speed_change), 0, target_speed
-                )
-
-            # Add remaining time at the current speed
-            min_time_needed += remaining_distance / current_speed
-
-            return min_time_needed
-
-        def get_previous_road_lane_ids(starting_waypoint):
-            """
-            Retrieves the previous road and lane IDs for a given starting waypoint.
-
-            Args:
-                starting_waypoint (carla.Waypoint): The starting waypoint.
-
-            Returns:
-                list: A list of tuples containing road IDs and lane IDs.
-            """
-            current_waypoint = starting_waypoint
-            previous_lane_ids = [(current_waypoint.road_id, current_waypoint.lane_id)]
-
-            # Traverse backwards up to 100 waypoints to find previous lane IDs
-            for _ in range(self.configs.previous_road_lane_retrieve_distance):
-                previous_waypoints = current_waypoint.previous(1)
-
-                # Check if the road ends and no previous route waypoints exist
-                if len(previous_waypoints) == 0:
-                    break
-                current_waypoint = previous_waypoints[0]
+                closest_distance = first_cone.get_location().distance(ego_location)
 
                 if (
-                    current_waypoint.road_id,
-                    current_waypoint.lane_id,
-                ) not in previous_lane_ids:
-                    previous_lane_ids.append(
-                        (current_waypoint.road_id, current_waypoint.lane_id)
+                    closest_distance
+                    < self.configs.default_max_distance_to_process_scenario
+                ):
+                    self.waypoint_planner.shift_route_for_invading_turn(
+                        first_cone, last_cone, offset
+                    )
+                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
+
+            elif scenario_type in [
+                "Accident",
+                "ConstructionObstacle",
+                "ParkedObstacle",
+            ]:
+                first_actor, last_actor, direction = scenario_data[:3]
+
+                horizontal_distance = get_horizontal_distance(
+                    self.ego_vehicle, first_actor
+                )
+
+                # Shift the route around the obstacles
+                if (
+                    horizontal_distance
+                    < self.configs.default_max_distance_to_process_scenario
+                ):
+                    transition_length = {
+                        "Accident": self.configs.transition_smoothness_distance,
+                        "ConstructionObstacle": self.configs.transition_smoothness_factor_construction_obstacle,
+                        "ParkedObstacle": self.configs.transition_smoothness_distance,
+                    }[scenario_type]
+                    _, _ = self.waypoint_planner.shift_route_around_actors(
+                        first_actor, last_actor, direction, transition_length
+                    )
+                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
+
+            elif scenario_type in [
+                "AccidentTwoWays",
+                "ConstructionObstacleTwoWays",
+                "ParkedObstacleTwoWays",
+                "VehicleOpensDoorTwoWays",
+            ]:
+                (
+                    first_actor,
+                    last_actor,
+                    direction,
+                    changed_route,
+                    from_index,
+                    to_index,
+                    path_clear,
+                ) = scenario_data
+
+                # change the route if the ego is close enough to the obstacle
+                horizontal_distance = get_horizontal_distance(
+                    self.ego_vehicle, first_actor
+                )
+
+                # Shift the route around the obstacles
+                if (
+                    horizontal_distance
+                    < self.configs.default_max_distance_to_process_scenario
+                    and not changed_route
+                ):
+                    transition_length = {
+                        "AccidentTwoWays": self.configs.transition_length_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.configs.transition_length_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.configs.transition_length_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.configs.transition_length_vehicle_opens_door_two_ways,
+                    }[scenario_type]
+                    add_before_length = {
+                        "AccidentTwoWays": self.configs.add_before_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.configs.add_before_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.configs.add_before_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.configs.add_before_vehicle_opens_door_two_ways,
+                    }[scenario_type]
+                    add_after_length = {
+                        "AccidentTwoWays": self.configs.add_after_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.configs.add_after_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.configs.add_after_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.configs.add_after_vehicle_opens_door_two_ways,
+                    }[scenario_type]
+                    factor = {
+                        "AccidentTwoWays": self.configs.factor_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.configs.factor_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.configs.factor_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.configs.factor_vehicle_opens_door_two_ways,
+                    }[scenario_type]
+
+                    (
+                        from_index,
+                        to_index,
+                    ) = self.waypoint_planner.shift_route_around_actors(
+                        first_actor,
+                        last_actor,
+                        direction,
+                        transition_length,
+                        factor,
+                        add_before_length,
+                        add_after_length,
                     )
 
-            return previous_lane_ids
+                    changed_route = True
+                    scenario_data[3] = changed_route
+                    scenario_data[4] = from_index
+                    scenario_data[5] = to_index
+
+                # Check if the ego can overtake the obstacle
+                if (
+                    changed_route
+                    and from_index - self.waypoint_planner.route_index
+                    < self.configs.max_distance_to_overtake_two_way_scnearios
+                    and not path_clear
+                ):
+                    # Get previous roads and lanes of the target lane
+                    target_lane = (
+                        route_waypoints[0].get_left_lane()
+                        if direction == "right"
+                        else route_waypoints[0].get_right_lane()
+                    )
+                    if target_lane is None:
+                        return target_speed, keep_driving, speed_reduced_by_obj
+                    prev_road_lane_ids = get_previous_road_lane_ids(
+                        target_lane, self.configs.previous_road_lane_retrieve_distance
+                    )
+
+                    overtake_speed = (
+                        self.configs.overtake_speed_vehicle_opens_door_two_ways
+                        if scenario_type == "VehicleOpensDoorTwoWays"
+                        else self.configs.default_overtake_speed
+                    )
+                    path_clear = is_overtaking_path_clear(
+                        self.world_map,
+                        self.ego_vehicle,
+                        vehicle_list,
+                        target_speed,
+                        self.waypoint_planner.route_points,
+                        from_index,
+                        to_index,
+                        prev_road_lane_ids,
+                        self.configs.check_path_free_safety_distance,
+                        self.configs.check_path_free_safety_time,
+                        min_speed=overtake_speed,
+                    )
+
+                    scenario_data[6] = path_clear
+
+                # If the overtaking path is clear, keep driving; otherwise, wait behind the obstacle
+                if path_clear:
+                    if (
+                        self.waypoint_planner.route_index
+                        >= to_index
+                        - self.configs.distance_to_delete_scenario_in_two_ways
+                    ):
+                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    target_speed = {
+                        "AccidentTwoWays": self.configs.default_overtake_speed,
+                        "ConstructionObstacleTwoWays": self.configs.default_overtake_speed,
+                        "ParkedObstacleTwoWays": self.configs.default_overtake_speed,
+                        "VehicleOpensDoorTwoWays": self.configs.overtake_speed_vehicle_opens_door_two_ways,
+                    }[scenario_type]
+                    keep_driving = True
+                else:
+                    distance_to_leading_actor = (
+                        float(from_index + 15 - self.waypoint_planner.route_index)
+                        / self.configs.points_per_meter
+                    )
+                    target_speed = self._get_speed_idm(
+                        ego_speed,
+                        target_speed,
+                        self.ego_vehicle.bounding_box.extent.x,
+                        0,
+                        distance_to_leading_actor,
+                        s0=self.configs.idm.two_way_scenarios_minimum_distance,
+                        T=self.configs.idm.two_way_scenarios_time_headway,
+                    )
+
+                    # Update the object causing the most speed reduction
+                    if (
+                        speed_reduced_by_obj is None
+                        or speed_reduced_by_obj[0] > target_speed
+                    ):
+                        speed_reduced_by_obj = [
+                            target_speed,
+                            first_actor.type_id,
+                            first_actor.id,
+                            distance_to_leading_actor,
+                        ]
+
+            elif scenario_type == "HazardAtSideLaneTwoWays":
+                (
+                    first_actor,
+                    last_actor,
+                    changed_route,
+                    from_index,
+                    to_index,
+                    path_clear,
+                ) = scenario_data
+
+                horizontal_distance = get_horizontal_distance(
+                    self.ego_vehicle, first_actor
+                )
+
+                if (
+                    horizontal_distance
+                    < self.configs.max_distance_to_process_hazard_at_side_lane_two_ways
+                    and not changed_route
+                ):
+                    to_index = self.waypoint_planner.get_closest_route_index(
+                        self.waypoint_planner.route_index, last_actor.get_location()
+                    )
+
+                    # Assume the bicycles don't drive more than 7.5 m during the overtaking process
+                    to_index += 135
+                    from_index = self.waypoint_planner.route_index
+
+                    starting_wp = route_waypoints[0].get_left_lane()
+                    prev_road_lane_ids = get_previous_road_lane_ids(starting_wp)
+                    path_clear = is_overtaking_path_clear(
+                        self.world_map,
+                        self.ego_vehicle,
+                        vehicle_list,
+                        target_speed,
+                        self.waypoint_planner.route_points,
+                        from_index,
+                        to_index,
+                        prev_road_lane_ids,
+                        self.configs.check_path_free_safety_distance,
+                        self.configs.check_path_free_safety_time,
+                        min_speed=self.configs.default_overtake_speed,
+                    )
+
+                    if path_clear:
+                        transition_length = self.configs.transition_smoothness_distance
+                        self.waypoint_planner.shift_route_smoothly(
+                            from_index, to_index, True, transition_length
+                        )
+                        changed_route = True
+                        scenario_data[2] = changed_route
+                        scenario_data[3] = from_index
+                        scenario_data[4] = to_index
+                        scenario_data[5] = path_clear
+
+                # the overtaking path is clear
+                if path_clear:
+                    # Check if the overtaking is done
+                    if self.waypoint_planner.route_index >= to_index:
+                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    # Overtake with max. 50 km/h
+                    target_speed, keep_driving = (
+                        self.configs.default_overtake_speed,
+                        True,
+                    )
+
+            elif scenario_type == "HazardAtSideLane":
+                (
+                    first_actor,
+                    last_actor,
+                    changed_first_part_of_route,
+                    from_index,
+                    to_index,
+                    path_clear,
+                ) = scenario_data
+
+                horizontal_distance = get_horizontal_distance(
+                    self.ego_vehicle, last_actor
+                )
+
+                if (
+                    horizontal_distance
+                    < self.configs.max_distance_to_process_hazard_at_side_lane
+                    and not changed_first_part_of_route
+                ):
+                    transition_length = self.configs.transition_smoothness_distance
+                    (
+                        from_index,
+                        to_index,
+                    ) = self.waypoint_planner.shift_route_around_actors(
+                        first_actor, last_actor, "right", transition_length
+                    )
+
+                    to_index -= transition_length
+                    changed_first_part_of_route = True
+                    scenario_data[2] = changed_first_part_of_route
+                    scenario_data[3] = from_index
+                    scenario_data[4] = to_index
+
+                if changed_first_part_of_route:
+                    to_idx_ = self.waypoint_planner.extend_lane_shift_transition_for_hazard_at_side_lane(
+                        last_actor, to_index
+                    )
+                    to_index = to_idx_
+                    scenario_data[4] = to_index
+
+                if self.waypoint_planner.route_index > to_index:
+                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
+
+            elif scenario_type == "YieldToEmergencyVehicle":
+                (
+                    emergency_veh,
+                    _,
+                    changed_route,
+                    from_index,
+                    to_index,
+                    to_left,
+                ) = scenario_data
+
+                horizontal_distance = get_horizontal_distance(
+                    self.ego_vehicle, emergency_veh
+                )
+
+                if (
+                    horizontal_distance
+                    < self.configs.default_max_distance_to_process_scenario
+                    and not changed_route
+                ):
+                    # Assume the emergency vehicle doesn't drive more than 20 m during the overtaking process
+                    from_index = (
+                        self.waypoint_planner.route_index
+                        + 30 * self.configs.points_per_meter
+                    )
+                    to_index = (
+                        from_index
+                        + int(2 * self.configs.points_per_meter)
+                        * self.configs.points_per_meter
+                    )
+
+                    transition_length = self.configs.transition_smoothness_distance
+                    to_left = (
+                        self.waypoint_planner.route_waypoints[from_index].lane_change
+                        != carla.LaneChange.Right
+                    )
+                    self.waypoint_planner.shift_route_smoothly(
+                        from_index, to_index, to_left, transition_length
+                    )
+
+                    changed_route = True
+                    to_index -= transition_length
+                    scenario_data[2] = changed_route
+                    scenario_data[3] = from_index
+                    scenario_data[4] = to_index
+                    scenario_data[5] = to_left
+
+                if changed_route:
+                    to_idx_ = self.waypoint_planner.extend_lane_shift_transition_for_yield_to_emergency_vehicle(
+                        to_left, to_index
+                    )
+                    to_index = to_idx_
+                    scenario_data[4] = to_index
+
+                    # Check if the emergency vehicle is in front of the ego vehicle
+                    diff = emergency_veh.get_location() - ego_location
+                    dot_res = (
+                        self.ego_vehicle.get_transform().get_forward_vector().dot(diff)
+                    )
+                    if dot_res > 0:
+                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
+
+        return target_speed, keep_driving, speed_reduced_by_obj
 
     def _get_speed_idm(
         self,
         ego_speed,
-        desired_speed,
+        target_speed,
         leading_actor_length,
         leading_actor_speed,
         distance_to_leading_actor,
@@ -280,7 +620,6 @@ class ExpertAgent(AutonomousAgent):
         """Compute the target speed for the ego vehicle using the Intelligent Driver Model (IDM).
 
         Args:
-
             s0 (float, optional): The minimum desired net distance.
             T (float, optional): The desired time headway.
 
@@ -320,7 +659,7 @@ class ExpertAgent(AutonomousAgent):
                 - ego_position
                 - leading_actor_length,
             )
-            dvdt = a * (1.0 - (ego_speed / desired_speed) ** delta - (s_star / s) ** 2)
+            dvdt = a * (1.0 - (ego_speed / target_speed) ** delta - (s_star / s) ** 2)
 
             return [ego_speed, dvdt]
 
@@ -338,7 +677,7 @@ class ExpertAgent(AutonomousAgent):
         # Clip the target speed to non-negative values
         return np.clip(target_speed, 0, np.inf)
 
-    def _get_speed_considering_leading_vehicle(
+    def _get_speed_wrt_leading_vehicle(
         self,
         initial_target_speed,
         predicted_bounding_boxes,
@@ -422,7 +761,7 @@ class ExpertAgent(AutonomousAgent):
 
         return target_speed_wrt_leading_vehicle, speed_reduced_by_obj
 
-    def _get_speed_considering_all_actors(
+    def _get_speed_wrt_all_actors(
         self,
         initial_target_speed,
         ego_bounding_boxes,
@@ -435,7 +774,7 @@ class ExpertAgent(AutonomousAgent):
         nearby_walkers_ids,
     ):
         """Compute the target speeds for the ego vehicle considering all actors (vehicles, bicycles,
-        and pedestrians) by checking for intersecting bounding boxes.
+        and walkers) by checking for intersecting bounding boxes.
 
         Args:
             initial_target_speed (float): The initial target speed for the ego vehicle.
@@ -445,11 +784,11 @@ class ExpertAgent(AutonomousAgent):
             leading_vehicle_ids (list): A list of IDs for vehicles in front of the ego vehicle.
             rear_vehicle_ids (list): A list of IDs for vehicles behind the ego vehicle.
             speed_reduced_by_obj (list or None): A list containing [reduced speed, object type, object ID, distance] for the object that caused the most speed reduction, or None if no speed reduction.
-            nearby_walkers (dict): A list of predicted bounding boxes of nearby pedestrians.
-            nearby_walkers_ids (list): A list of IDs for nearby pedestrians.
+            nearby_walkers (dict): A list of predicted bounding boxes of nearby walkers.
+            nearby_walkers_ids (list): A list of IDs for nearby walkers.
         """
         target_speed_bicycle = initial_target_speed
-        target_speed_pedestrian = initial_target_speed
+        target_speed_walker = initial_target_speed
         target_speed_vehicle = initial_target_speed
         ego_location = self.ego_vehicle.get_location()
         hazard_color = self.configs.ego_vehicle.forecasted_bbs_hazard_color
@@ -532,37 +871,37 @@ class ExpertAgent(AutonomousAgent):
                                     distance_to_actor,
                                 ]
 
-            # Iterate over nearby pedestrians and check for intersections with the ego bounding box
-            for pedestrian_bb, pedestrian_id in zip(nearby_walkers, nearby_walkers_ids):
-                if self.check_obb_intersection(ego_bounding_box, pedestrian_bb[i]):
+            # Iterate over nearby walkers and check for intersections with the ego bounding box
+            for walker_bb, walker_id in zip(nearby_walkers, nearby_walkers_ids):
+                if self.check_obb_intersection(ego_bounding_box, walker_bb[i]):
                     color = hazard_color
                     ego_speed = self.ego_vehicle.get_velocity().length()
-                    blocking_actor = self.world.get_actor(pedestrian_id)
+                    blocking_actor = self.world.get_actor(walker_id)
                     distance_to_actor = ego_location.distance(
                         blocking_actor.get_location()
                     )
 
-                    # Compute the target speed for pedestrians using the IDM
-                    target_speed_pedestrian = min(
-                        target_speed_pedestrian,
+                    # Compute the target speed for walkers using the IDM
+                    target_speed_walker = min(
+                        target_speed_walker,
                         self._get_speed_idm(
                             ego_speed,
                             initial_target_speed,
                             0.5 + self.ego_vehicle.bounding_box.extent.x,
                             0.0,
                             distance_to_actor,
-                            s0=self.configs.idm.pedestrian_minimum_distance,
-                            T=self.configs.idm.pedestrian_desired_time_headway,
+                            s0=self.configs.idm.walker_minimum_distance,
+                            T=self.configs.idm.walker_desired_time_headway,
                         ),
                     )
 
                     # Update the object causing the most speed reduction
                     if (
                         speed_reduced_by_obj is None
-                        or speed_reduced_by_obj[0] > target_speed_pedestrian
+                        or speed_reduced_by_obj[0] > target_speed_walker
                     ):
                         speed_reduced_by_obj = [
-                            target_speed_pedestrian,
+                            target_speed_walker,
                             blocking_actor.type_id,
                             blocking_actor.id,
                             distance_to_actor,
@@ -579,7 +918,7 @@ class ExpertAgent(AutonomousAgent):
 
         return (
             target_speed_bicycle,
-            target_speed_pedestrian,
+            target_speed_walker,
             target_speed_vehicle,
             speed_reduced_by_obj,
         )
@@ -604,7 +943,7 @@ class ExpertAgent(AutonomousAgent):
         ego_location = self.ego_vehicle.get_location()
         ego_speed = self.ego_vehicle.get_velocity().length()
 
-        for light, center, waypoints in self.list_traffic_lights:
+        for light, center, waypoints in self.traffic_light_list:
             center_loc = carla.Location(center)
             if center_loc.distance(ego_location) > self.configs.light_radius:
                 continue
@@ -632,7 +971,7 @@ class ExpertAgent(AutonomousAgent):
                 )
 
                 close_traffic_lights.append(
-                    [bounding_box, light.state, light.id, affects_ego]
+                    [bounding_box, light.id, affects_ego, light.state]
                 )
 
                 if self.visualize:
@@ -691,7 +1030,7 @@ class ExpertAgent(AutonomousAgent):
         Args:
             target_speed (float): The current target speed of the ego vehicle.
             next_stop_sign (carla.TrafficSign or None): The next stop sign in the route.
-            actor_list (list): A list of all actors (vehicles, pedestrians, etc.) in the simulation.
+            actor_list (list): A list of all actors (vehicles, walkers, etc.) in the simulation.
 
         Returns:
             float: The adjusted target speed for the ego vehicle.
@@ -779,7 +1118,27 @@ class ExpertAgent(AutonomousAgent):
         # Return whether the ego vehicle is affected by the stop sign and the adjusted target speed
         return target_speed
 
-    def get_speed_brake_and_target(self, initial_target_speed):
+    def _get_speed_brake_and_target(
+        self,
+        initial_target_speed,
+        actor_list,
+        vehicle_list,
+        route_points,
+        distance_to_next_traffic_light,
+        next_traffic_light,
+        distance_to_next_stop_sign,
+        next_stop_sign,
+        plant,
+    ):
+        """Compute the brake command and target speed for the ego vehicle based on various factors.
+
+        Args:
+            initial_target_speed (float): The initial target speed for the ego vehicle.
+            actor_list (list): A list of all actors (vehicles, walkers, etc.) in the simulation.
+            vehicle_list (list): A list of vehicle actors in the simulation.
+            route_points (numpy.ndarray): An array of waypoints representing the planned route.
+            plant (bool): Whether to use plant.
+        """
         ego_speed = self.ego_vehicle.get_velocity().length()
         ego_location = self.ego_vehicle.get_location()
         ego_transform = self.ego_vehicle.get_transform()
@@ -807,14 +1166,138 @@ class ExpertAgent(AutonomousAgent):
         self._reset_flags()
 
         # Compute if there will be a lane change close
+        near_lane_change = is_near_lane_change(ego_speed, route_points)
+
+        # Compute the number of future frames to consider for collision detection
         num_future_frames = int(
             self.configs.bicycle_frame_rate
             * (
-                self.config.forecast_length_lane_change
+                self.configs.forecast_length_lane_change
                 if near_lane_change
-                else self.config.default_forecast_length
+                else self.configs.default_forecast_length
             )
         )
+
+        # Get future bounding boxes of walkers
+        if not plant:
+            nearby_walkers, nearby_walker_ids = self.forecast_walker(
+                actor_list, ego_location, num_future_frames
+            )
+
+        # Forecast the ego vehicle's bounding boxes for the future frames
+        ego_bbox = self.forecast_ego_agent(ego_speed, num_future_frames, route_points)
+
+        # Forecast the ego vehicle's bounding boxes for the future frames
+        predicted_bbox = self.predict_bbox(
+            actor_list, near_lane_change, num_future_frames, plant
+        )
+
+        # Compute the leading and rear vehicle IDs
+        leading_vehicle_ids = self.waypoint_planner.compute_leading_vehicles(
+            vehicle_list, self.ego_vehicle.id
+        )
+        rear_vehicle_ids = self.waypoint_planner.compute_trailing_vehicles(
+            vehicle_list, self.ego_vehicle.id
+        )
+
+        # Compute the target speed with respect to the leading vehicle
+        (
+            target_speed_leading,
+            speed_reduced_by_obj,
+        ) = self._get_speed_wrt_leading_vehicle(
+            initial_target_speed,
+            predicted_bbox,
+            near_lane_change,
+            leading_vehicle_ids,
+            rear_vehicle_ids,
+            speed_reduced_by_obj,
+            plant,
+        )
+
+        # Compute the target speeds with respect to all actors (vehicles, bicycles, walkers)
+        (
+            target_speed_bicycle,
+            target_speed_walker,
+            target_speed_vehicle,
+            speed_reduced_by_obj,
+        ) = self._get_speed_wrt_all_actors(
+            initial_target_speed,
+            ego_bbox,
+            predicted_bbox,
+            near_lane_change,
+            leading_vehicle_ids,
+            rear_vehicle_ids,
+            speed_reduced_by_obj,
+            nearby_walkers,
+            nearby_walker_ids,
+        )
+
+        # Compute the target speed with respect to the red light
+        target_speed_traffic_light = self._get_speed_affected_by_traffic_light(
+            initial_target_speed, distance_to_next_traffic_light, next_traffic_light
+        )
+
+        # Update the object causing the most speed reduction
+        if (
+            speed_reduced_by_obj is None
+            or speed_reduced_by_obj[0] > target_speed_traffic_light
+        ):
+            speed_reduced_by_obj = [
+                target_speed_traffic_light,
+                None if next_traffic_light is None else next_traffic_light.type_id,
+                None if next_traffic_light is None else next_traffic_light.id,
+                distance_to_next_traffic_light,
+            ]
+
+        # Compute the target speed with respect to the stop sign
+        target_speed_stop_sign = self._get_speed_affected_by_stop_sign(
+            initial_target_speed, next_stop_sign, actor_list
+        )
+
+        # Update the object causing the most speed reduction
+        if (
+            speed_reduced_by_obj is None
+            or speed_reduced_by_obj[0] > target_speed_stop_sign
+        ):
+            speed_reduced_by_obj = [
+                target_speed_stop_sign,
+                None if next_stop_sign is None else next_stop_sign.type_id,
+                None if next_stop_sign is None else next_stop_sign.id,
+                distance_to_next_stop_sign,
+            ]
+
+        # Compute the minimum target speed considering all factors
+        target_speed = min(
+            target_speed_leading,
+            target_speed_bicycle,
+            target_speed_vehicle,
+            target_speed_walker,
+            target_speed_traffic_light,
+            target_speed_stop_sign,
+        )
+
+        # Set the hazard flags based on the target speed and its cause
+        if (
+            target_speed == target_speed_walker
+            and target_speed_walker != initial_target_speed
+        ):
+            self.walker_hazard = True
+            self.walker_close = True
+        elif (
+            target_speed == target_speed_traffic_light
+            and target_speed_traffic_light != initial_target_speed
+        ):
+            self.traffic_light_hazard = True
+        elif (
+            target_speed == target_speed_stop_sign
+            and target_speed_stop_sign != initial_target_speed
+        ):
+            self.stop_sign_hazard = True
+            self.stop_sign_close = True
+
+        # Determine if the ego vehicle needs to brake based on the target speed
+        brake = target_speed == 0
+        return brake, target_speed, speed_reduced_by_obj
 
     def _get_steer(
         self, route_points, current_position, current_heading, current_speed
@@ -859,7 +1342,130 @@ class ExpertAgent(AutonomousAgent):
 
         return steering_angle
 
-    def _predict_bbox(self, actor_list, near_lane_change, num_future_frames, plant):
+    def get_control(self, input_data):
+        ego_gps, ego_speed, ego_compass = self.get_ego_state(input_data)
+
+        # Waypoint planning and route generation
+        (
+            route_np,
+            route_wp,
+            _,
+            distance_to_next_traffic_light,
+            next_traffic_light,
+            distance_to_next_stop_sign,
+            next_stop_sign,
+            speed_limit,
+        ) = self.waypoint_planner.run_step(ego_gps)
+
+        # Extract relevant route information
+        self.remaining_route = route_np[self.configs.tf_first_checkpoint_distance :][
+            :: self.configs.points_per_meter
+        ]
+        self.remaining_route_original = self.waypoint_planner.original_route_points[
+            self.waypoint_planner.route_index :
+        ][self.configs.tf_first_checkpoint_distance :][:: self.configs.points_per_meter]
+
+        target_speed = speed_limit * self.configs.ratio_target_speed_limit
+
+        # Reduce target speed if there is a junction ahead
+        for i in range(
+            min(self.configs.max_lookahead_to_check_for_junction, len(route_wp))
+        ):
+            if route_wp[i].is_junction:
+                target_speed = min(target_speed, self.configs.max_speed_in_junction)
+                break
+
+        # Get the list of vehicles in the scene
+        actors = self.world.get_actors()
+        vehicles = list(actors.filter("*vehicle*"))
+
+        # Manage route obstacle scenarios and adjust target speed
+        (
+            target_speed_route_obstacle,
+            keep_driving,
+            speed_reduced_by_obj,
+        ) = self._manage_route_obstacle_scenarios(
+            target_speed, ego_speed, route_wp, vehicles, route_np
+        )
+
+        # In case the agent overtakes an obstacle, keep driving in case the opposite lane is free instead of using idm
+        # and the kinematic bicycle model forecasts
+        if keep_driving:
+            brake, target_speed = False, target_speed_route_obstacle
+        else:
+            brake, target_speed, speed_reduced_by_obj = self.get_speed_brake_and_target(
+                target_speed,
+            )
+
+        target_speed = min(target_speed, target_speed_route_obstacle)
+
+        # Determine if the ego vehicle is at a junction
+        ego_waypoint = self.world_map.get_waypoint(self.ego_vehicle.get_location())
+        self.is_junction = ego_waypoint.is_junction
+
+        # Compute throttle and brake control
+        throttle, control_brake = self.longitudinal_controller.get_throttle_and_brake(
+            brake, target_speed, ego_speed
+        )
+
+        # Compute steering control
+        steer = self._get_steer(route_np, ego_gps, ego_compass, ego_speed)
+
+        # Create the control command
+        control = carla.VehicleControl()
+        control.steer = steer + self.configs.steer_noise * np.random.randn()
+        control.throttle = throttle
+        control.brake = float(brake or control_brake)
+
+        # Apply brake if the vehicle is stopped to prevent rolling back
+        if (
+            control.throttle == 0
+            and ego_speed < self.configs.minimum_speed_to_prevent_rolling_back
+        ):
+            control.brake = 1
+
+        # Apply throttle if the vehicle is blocked for too long
+        ego_velocity = CarlaDataProvider.get_velocity(self.ego_vehicle)
+        if ego_velocity < 0.1:
+            self.ego_blocked_for_ticks += 1
+        else:
+            self.ego_blocked_for_ticks = 0
+
+        if self.ego_blocked_for_ticks >= self.configs.max_blocked_ticks:
+            control.throttle = 1
+            control.brake = 0
+
+        # Save control commands and target speed
+        self.steer = control.steer
+        self.throttle = control.throttle
+        self.brake = control.brake
+        self.target_speed = target_speed
+
+        # Update speed histogram if enabled
+        if self.make_histogram:
+            self.speed_histogram.append((self.target_speed * 3.6) if not brake else 0.0)
+
+        # Get the target and next target points from the command planner
+        command_route = self._command_planner.run_step(ego_gps)
+        if len(command_route) > 2:
+            target_point, far_command = command_route[1]
+            next_target_point, next_far_command = command_route[2]
+        elif len(command_route) > 1:
+            target_point, far_command = command_route[1]
+            next_target_point, next_far_command = command_route[1]
+        else:
+            target_point, far_command = command_route[0]
+            next_target_point, next_far_command = command_route[0]
+
+        # Update command history and save driving datas
+        if (target_point != self.target_point_prev).all():
+            self.target_point_prev = target_point
+            self.commands.append(far_command.value)
+            self.next_commands.append(next_far_command.value)
+
+        return control
+
+    def predict_bbox(self, actor_list, near_lane_change, num_future_frames, plant):
         """Predict the future bounding boxes of actors for a given number of frames.
 
         Args:
@@ -1118,9 +1724,9 @@ class ExpertAgent(AutonomousAgent):
 
         return future_bounding_boxes
 
-    def forecast_pedestrian(self, actors, number_of_future_frames):
+    def forecast_walker(self, actors, number_of_future_frames):
         """
-        Forecast the future locations of pedestrians in the vicinity of the ego vehicle assuming they
+        Forecast the future locations of walkers in the vicinity of the ego vehicle assuming they
         keep their velocity and direction
 
         Args:
@@ -1129,57 +1735,60 @@ class ExpertAgent(AutonomousAgent):
 
         Returns:
             tuple: A tuple containing two lists:
-                - list: A list of lists, where each inner list contains the future bounding boxes for a pedestrian.
-                - list: A list of IDs for the pedestrians whose locations were forecasted.
+                - list: A list of lists, where each inner list contains the future bounding boxes for a walker.
+                - list: A list of IDs for the walkers whose locations were forecasted.
         """
         ego_location = self.ego_vehicle.get_location()
-        nearby_pedestrians_bbs, nearby_pedestrian_ids = [], []
+        nearby_walkers_bbs, nearby_walker_ids = [], []
 
-        # Filter pedestrians within the detection radius
-        pedestrians = [
-            ped
-            for ped in actors.filter("*walker*")
-            if ped.get_location().distance(ego_location) < self.configs.detection_radius
+        # Filter walkers within the detection radius
+        walkers = [
+            walker
+            for walker in actors.filter("*walker*")
+            if walker.get_location().distance(ego_location)
+            < self.configs.detection_radius
         ]
 
-        # If no pedestrians are found, return empty lists
-        if not pedestrians:
-            return nearby_pedestrians_bbs, nearby_pedestrian_ids
+        # If no walkers are found, return empty lists
+        if not walkers:
+            return nearby_walkers_bbs, nearby_walker_ids
 
-        # Extract pedestrian locations, speeds, and directions
-        pedestrian_locations = np.array(
-            [
-                [ped.get_location().x, ped.get_location().y, ped.get_location().z]
-                for ped in pedestrians
-            ]
-        )
-        pedestrian_speeds = np.array(
-            [ped.get_velocity().length() for ped in pedestrians]
-        )
-        pedestrian_speeds = np.maximum(pedestrian_speeds, self.configs.min_walker_speed)
-        pedestrian_directions = np.array(
+        # Extract walker locations, speeds, and directions
+        walker_locations = np.array(
             [
                 [
-                    ped.get_control().direction.x,
-                    ped.get_control().direction.y,
-                    ped.get_control().direction.z,
+                    walker.get_location().x,
+                    walker.get_location().y,
+                    walker.get_location().z,
                 ]
-                for ped in pedestrians
+                for walker in walkers
+            ]
+        )
+        walker_speeds = np.array([walker.get_velocity().length() for walker in walkers])
+        walker_speeds = np.maximum(walker_speeds, self.configs.min_walker_speed)
+        walker_directions = np.array(
+            [
+                [
+                    walker.get_control().direction.x,
+                    walker.get_control().direction.y,
+                    walker.get_control().direction.z,
+                ]
+                for walker in walkers
             ]
         )
 
-        # Calculate future pedestrian locations based on their current locations, speeds, and directions
-        future_pedestrian_locations = (
-            pedestrian_locations[:, None, :]
+        # Calculate future walker locations based on their current locations, speeds, and directions
+        future_walker_locations = (
+            walker_locations[:, None, :]
             + np.arange(1, number_of_future_frames + 1)[None, :, None]
-            * pedestrian_directions[:, None, :]
-            * pedestrian_speeds[:, None, None]
+            * walker_directions[:, None, :]
+            * walker_speeds[:, None, None]
             / self.configs.bicycle_frame_rate
         )
 
-        # Iterate over pedestrians and calculate their future bounding boxes
-        for i, ped in enumerate(pedestrians):
-            bb, transform = ped.bounding_box, ped.get_transform()
+        # Iterate over walkers and calculate their future bounding boxes
+        for i, walker in enumerate(walkers):
+            bb, transform = walker.bounding_box, walker.get_transform()
             rotation = carla.Rotation(
                 pitch=bb.rotation.pitch + transform.rotation.pitch,
                 yaw=bb.rotation.yaw + transform.rotation.yaw,
@@ -1187,37 +1796,37 @@ class ExpertAgent(AutonomousAgent):
             )
             extent = bb.extent
             extent.x = max(
-                self.configs.pedestrian_minimum_extent, extent.x
+                self.configs.walker_minimum_extent, extent.x
             )  # Ensure a minimum width
             extent.y = max(
-                self.configs.pedestrian_minimum_extent, extent.y
+                self.configs.walker_minimum_extent, extent.y
             )  # Ensure a minimum length
 
-            pedestrian_future_bboxes = []
+            walker_future_bboxes = []
             for j in range(number_of_future_frames):
                 location = carla.Location(
-                    future_pedestrian_locations[i, j, 0],
-                    future_pedestrian_locations[i, j, 1],
-                    future_pedestrian_locations[i, j, 2],
+                    future_walker_locations[i, j, 0],
+                    future_walker_locations[i, j, 1],
+                    future_walker_locations[i, j, 2],
                 )
 
                 bounding_box = carla.BoundingBox(location, extent)
                 bounding_box.rotation = rotation
-                pedestrian_future_bboxes.append(bounding_box)
+                walker_future_bboxes.append(bounding_box)
 
-            nearby_pedestrian_ids.append(ped.id)
-            nearby_pedestrians_bbs.append(pedestrian_future_bboxes)
+            nearby_walker_ids.append(walker.id)
+            nearby_walkers_bbs.append(walker_future_bboxes)
 
-        # Visualize the future bounding boxes of pedestrians (if enabled)
+        # Visualize the future bounding boxes of walkers (if enabled)
         if self.visualize:
-            for bbs in nearby_pedestrians_bbs:
+            for bbs in nearby_walkers_bbs:
                 for bbox in bbs:
                     self.world.debug.draw_box(
                         box=bbox,
                         rotation=bbox.rotation,
                         thickness=0.1,
-                        color=self.configs.pedestrian_forecasted_bbs_color,
+                        color=self.configs.walker_forecasted_bbs_color,
                         life_time=self.configs.draw_life_time,
                     )
 
-        return nearby_pedestrians_bbs, nearby_pedestrian_ids
+        return nearby_walkers_bbs, nearby_walker_ids

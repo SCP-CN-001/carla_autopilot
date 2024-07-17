@@ -1,21 +1,177 @@
 import carla
-from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
+import numpy as np
+from agents.tools.misc import get_trafficlight_trigger_location
 
+from src.common_carla.actor import get_forward_speed
 from src.common_carla.geometry import cross_product, dot_product
+from src.common_carla.waypoint import get_next_waypoints
+from src.utils.geometry import get_relative_position, get_transform_3D, normalize_angle
 
 
-def get_bboxes(lidar=None):
-    ego_vehicle = CarlaDataProvider.get_hero_actor()
-    world = CarlaDataProvider.get_world()
+def get_close_actor_bbox(actor_info, actor_class, ego_vehicle):
+    ego_yaw = np.deg2rad(ego_vehicle.get_transform().rotation.yaw)
+    ego_matrix = np.array(ego_vehicle.get_transform().get_matrix())
 
-    ego_transform = ego_vehicle.get_transform()
-    ego_rotation = ego_transform.rotation
+    actor_transform = carla.Transform(actor_info[0].location, actor_info[0].rotation)
+    actor_rotation = actor_transform.rotation
+    actor_matrix = np.array(actor_transform.get_matrix())
+    actor_extent = [
+        actor_info[0].extent.x,
+        actor_info[0].extent.y,
+        actor_info[0].extent.z,
+    ]
+    actor_yaw = np.deg2rad(actor_rotation.yaw)
 
-    ego_control = ego_vehicle.get_control()
-    ego_brake = ego_control.brake
+    relative_yaw = normalize_angle(actor_yaw - ego_yaw)
+    relative_location = get_relative_position(ego_matrix, actor_matrix)
 
-    actors = world.get_actors()
-    actor_list = actors.filter("*vehicle*")
+    distance = np.linalg.norm(relative_location)
+
+    result = {
+        "id": int(actor_info[1]),
+        "class": actor_class,
+        "extent": actor_extent,
+        "location": [relative_location[0], relative_location[1], relative_location[2]],
+        "yaw": relative_yaw,
+        "distance": distance,
+        "affects_ego": actor_info[2],
+        "matrix": actor_transform.get_matrix(),
+    }
+
+    if actor_class == "traffic_light":
+        result["state"] = actor_info[3]
+
+    return result
+
+
+def get_actor_bbox(
+    world_map,
+    actor,
+    actor_class,
+    ego_vehicle,
+    ego_wp,
+    ego_direction,
+    lane_id_left_most_lane_same_direction,
+    lane_id_right_most_lane_opposite_direction,
+    ego_lane_number,
+    lidar_points=None,
+):
+    """
+
+    Can handle walker, static, static_car (static.prop.mesh), static.prop.trafficwarning, traffic_light_vqa, stop_sign_vqa
+
+    Args:
+        world_map (_type_): _description_
+        actor (_type_): _description_
+        actor_class (_type_): _description_
+        ego_vehicle (_type_): _description_
+        ego_wp (_type_): _description_
+        ego_direction (_type_): _description_
+        lane_id_left_most_lane_same_direction (_type_): _description_
+        lane_id_right_most_lane_opposite_direction (_type_): _description_
+        ego_lane_number (_type_): _description_
+        lidar_points (_type_, optional): _description_. Defaults to None.
+    """
+    ego_yaw = np.deg2rad(ego_vehicle.get_transform().rotation.yaw)
+    ego_matrix = np.array(ego_vehicle.get_transform().get_matrix())
+
+    actor_transform = actor.get_transform()
+    actor_rotation = actor_transform.rotation
+    actor_matrix = np.array(actor_transform.get_matrix())
+    actor_extent = actor.bounding_box.extent
+    actor_extent = [actor_extent.x, actor_extent.y, actor_extent.z]
+    yaw = np.deg2rad(actor_rotation.yaw)
+
+    relative_yaw = normalize_angle(yaw - ego_yaw)
+    relative_location = get_relative_position(ego_matrix, actor_matrix)
+    # TODO: Handle the passed traffic lights
+
+    if not lidar_points is None:
+        num_points = count_points_in_bbox(
+            lidar_points, relative_location, relative_yaw, actor_extent
+        )
+    else:
+        num_points = -1
+
+    distance = np.linalg.norm(relative_location)
+
+    if actor_class != "landmark":
+        if actor_class in ["traffic_light_vqa", "stop_sign_vqa"]:
+            trigger = get_trafficlight_trigger_location(actor)
+            actor_wp = world_map.get_waypoint(
+                trigger, project_to_road=False, lane_type=carla.LaneType.Any
+            )
+        else:
+            actor_wp = world_map.get_waypoint(
+                actor.get_location(), lane_type=carla.LaneType.Any
+            )
+        same_road_as_ego = False
+        same_direction_as_ego = False
+        lane_relative_to_ego = None
+
+        if actor_wp.road_id == ego_wp.road_id:
+            same_road_as_ego = True
+            direction = actor_wp.lane_id / abs(actor_wp.lane_id)
+            if direction == ego_direction:
+                same_direction_as_ego = True
+            if same_direction_as_ego:
+                lane_relative_to_ego = abs(
+                    actor_wp.lane_id - lane_id_left_most_lane_same_direction
+                )
+            else:
+                lane_relative_to_ego = (
+                    -1
+                    * abs(actor_wp.lane_id - lane_id_right_most_lane_opposite_direction)
+                    - 1
+                )
+            lane_relative_to_ego = lane_relative_to_ego - ego_lane_number
+
+    result = {
+        "class": actor_class,
+        "extent": actor_extent,
+        "location": [
+            relative_location[0],
+            relative_location[1],
+            relative_location[2],
+        ],
+        "yaw": relative_yaw,
+        "distance": distance,
+        "num_points": num_points,
+    }
+
+    if actor_class == "walker":
+        result["id"] = actor.id
+        actor_speed = get_forward_speed(actor)
+        result["speed"] = actor_speed
+        result["role_name"] = actor.role_name
+        result["gender"] = actor.gender
+        result["age"] = actor.age
+    elif actor_class == "static_car":
+        if "Car" in actor.attributes["mesh_path"]:
+            result["road_id"] = actor_wp.road_id
+            result["junction_id"] = actor_wp.junction_id
+    elif actor_class == "traffic_light_vqa":
+        result["road_id"] = actor_wp.road_id
+        result["junction_id"] = actor_wp.junction_id
+        result["state"] = int(actor.state)
+    elif actor_class == "stop_sign_vqa":
+        result["road_id"] = actor_wp.road_id
+        result["junction_id"] = actor_wp.junction_id
+    elif actor_class == "landmark":
+        result["id"] = actor.id
+        result["name"] = actor.name
+        result["text"] = actor.text
+        result["value"] = actor.value
+
+    if actor_class != "landmark":
+        result["lane_id"] = actor_wp.lane_id
+        result["lane_type"] = actor_wp.lane_type
+        result["same_road_as_ego"] = same_road_as_ego
+        result["same_direction_as_ego"] = same_direction_as_ego
+        result["lane_relative_to_ego"] = (lane_relative_to_ego,)
+        result["matrix"] = actor_transform.get_matrix()
+
+    return result
 
 
 def get_separating_plane(
@@ -159,7 +315,7 @@ def check_obb_intersection(obb1: carla.BoundingBox, obb2: carla.BoundingBox):
 
 
 def is_point_in_bbox(point, bbox_center, bbox_extent):
-    """_summary_
+    """Check if a point is inside a 2D bounding box.
 
     Args:
         point (_type_): _description_
@@ -184,3 +340,30 @@ def is_point_in_bbox(point, bbox_center, bbox_extent):
     ad_ad = dot_product(AD, AD, carla.Vector2D)
 
     return 0 <= am_ab <= ab_ab and 0 <= am_ad <= ad_ad
+
+
+def count_points_in_bbox(points, location, direction, extent):
+    """Count the number of points inside a 3D bounding box.
+
+    Args:
+        points (np.ndarray): 3D points (N,3)
+        location (np.ndarray): Location of the center of the bounding box.
+        direction (float): Direction of the bounding box in radians.
+        extent (list): Extent of the bounding box in meters.
+
+    Returns:
+        int: The number of points inside the bounding box.
+    """
+    points = get_transform_3D(points, location, direction)
+
+    # check points in bbox
+    x, y, z = extent[0], extent[1], extent[2]
+    num_points = (
+        (points[:, 0] < x)
+        & (points[:, 0] > -x)
+        & (points[:, 1] < y)
+        & (points[:, 1] > -y)
+        & (points[:, 2] < z)
+        & (points[:, 2] > -z)
+    ).sum()
+    return num_points

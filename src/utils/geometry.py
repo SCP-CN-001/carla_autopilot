@@ -106,20 +106,3 @@ def get_angle_by_position(current_position, current_angle, target_position):
     angle_radians = -np.arctan2(-target_y, target_x)
 
     return angle_radians
-
-
-def preprocess_compass(compass):
-    """Checks the compass for Nans and rotates it into the default CARLA coordinate
-    system with range [-pi,pi].
-
-    Args:
-        compass (float): Compass value provided by the IMU, in radian
-    """
-    if math.isnan(compass):  # simulation bug
-        compass = 0.0
-
-    # The minus 90.0 degree is because the compass sensor uses a different
-    # coordinate system then CARLA. Check the coordinate_sytems.txt file
-    compass = normalize_angle(compass - np.deg2rad(90.0))
-
-    return compass
