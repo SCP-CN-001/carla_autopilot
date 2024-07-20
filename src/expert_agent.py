@@ -46,15 +46,14 @@ class ExpertAgent(AutonomousAgent):
     """
 
     def __init__(self, carla_host, carla_port, debug=False):
-        self.debug = debug
+        self.debug = debug == 1
 
         self._global_plan = None
         self._global_plan_world_coord = None
 
         # this data structure will contain all sensor data
         self.sensor_interface = SensorInterface()
-
-        self.wallclock_t0 = None
+        logging.info("Expert agent initialized.")
 
     def set_global_plan(self, global_plan_gps, global_plan_world_coord):
         """
@@ -74,6 +73,7 @@ class ExpertAgent(AutonomousAgent):
         configs = OmegaConf.load(path_to_conf_file)
 
         self.configs = configs
+        self.all_infos = configs.all_infos
         self.save_path = configs.save_path
 
         # Dynamics models
@@ -168,8 +168,26 @@ class ExpertAgent(AutonomousAgent):
                 if extent.x < 0.001 or extent.y < 0.001 or extent.z < 0.001:
                     actor.destroy()
 
+        logging.info("Expert agent setup completed.")
+
     def sensors(self):
-        return
+        sensors = [
+            {"type": "sensor.opendrive_map", "reading_frequency": 1e-6, "id": "hd_map"},
+            {
+                "type": "sensor.other.imu",
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "roll": 0.0,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "sensor_tick": 0.05,
+                "id": "imu",
+            },
+            {"type": "sensor.speedometer", "reading_frequency": 20, "id": "speed"},
+        ]
+
+        return sensors
 
     def get_ego_state(self, input_data):
         # Get the vehicle's speed from its velocity vector

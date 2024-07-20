@@ -12,6 +12,7 @@ Provisional code to evaluate Autonomous Agents for the CARLA Autonomous Driving 
 """
 import argparse
 import importlib
+import logging
 import os
 import pathlib
 import random
@@ -21,6 +22,8 @@ import traceback
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 from distutils.version import LooseVersion
+
+logging.basicConfig(level=logging.DEBUG)
 
 import carla
 import numpy as np
@@ -34,10 +37,10 @@ from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
 
-from leaderboard_custom.autoagents.agent_wrapper import AgentError
-from leaderboard_custom.scenarios.cheater import Cheater
-from leaderboard_custom.scenarios.route_scenario import RouteScenario
-from leaderboard_custom.scenarios.scenario_manager import ScenarioManager
+from src.leaderboard_custom.autoagents.agent_wrapper import AgentError
+from src.leaderboard_custom.scenarios.cheater import Cheater
+from src.leaderboard_custom.scenarios.route_scenario import RouteScenario
+from src.leaderboard_custom.scenarios.scenario_manager import ScenarioManager
 
 sensors_to_icons = {
     "sensor.camera.rgb": "carla_camera",
@@ -159,7 +162,7 @@ class LeaderboardEvaluator:
 
         try:
             if self.agent_instance:
-                self.agent_instance.destroy(results)
+                self.agent_instance.destroy()
                 del self.agent_instance
         except Exception as e:
             print("\n\033[91mFailed to stop the agent:")
@@ -505,7 +508,7 @@ class LeaderboardEvaluator:
 
 
 def main():
-    print("Running main() in leaderboard_evaluator_local.py")
+    logging.info("Running main() in src/leaderboard_custom/leaderboard_evaluator.py")
     description = (
         "CARLA AD Leaderboard Evaluation: evaluate your Agent in CARLA scenarios\n"
     )
@@ -610,23 +613,6 @@ def main():
         sys.exit(-1)
     else:
         sys.exit(0)
-
-
-# CHANGED
-def main_eval(arguments):
-    description = (
-        "CARLA AD Leaderboard Evaluation: evaluate your Agent in CARLA scenarios\n"
-    )
-    statistics_manager = StatisticsManager()
-
-    try:
-        leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
-        leaderboard_evaluator.run(arguments)
-
-    except Exception as e:
-        traceback.print_exc()
-    finally:
-        del leaderboard_evaluator
 
 
 if __name__ == "__main__":

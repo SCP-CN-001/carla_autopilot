@@ -5,6 +5,7 @@
 visualize: false
 track: none
 save_path: none
+all_infos: true
 frame_rate_carla: 20.0
 time_step_carla: 1.0 / ${frame_rate_carla}
 
@@ -283,7 +284,7 @@ lateral_pid_controller:
 # Privileged Route Planner
 # -------------------------------------------------------------
 privileged_route_planner:
-  ${points_per_meter}: ${points_per_meter}
+  points_per_meter: ${points_per_meter}
   # Max distance to search ahead for updating ego route index  in meters.
   search_distance_route_point: 4 * ${points_per_meter}
   # Distance over which lane shift transition is smoothed  in meters.
