@@ -2,7 +2,7 @@
 # @File: route_planner.py
 # @Description: This file implements the class used for data generation for the high level commands and the target waypoints.
 # @CreatedTime: 2024/07/12
-# @Author: PDM-Lite
+# @Author: Yueyuan Li, PDM-Lite
 
 import math
 import warnings
@@ -17,33 +17,25 @@ from agents.navigation.global_route_planner import GlobalRoutePlanner
 
 class RoutePlanner:
     """
-    Gets the next waypoint along a path
+    Gets the next waypoint along a path.
+
+    Adapted from: https://github.com/SCP-CN-001/carla_autopilot/blob/main/src/planners/route_planner.py.
+
+    Only improve the code style and remove the unused code.
     """
 
-    def __init__(self, min_distance, max_distance):
+    def __init__(self, configs):
         self.saved_route = deque()
         self.route = deque()
         self.saved_route_distances = deque()
         self.route_distances = deque()
 
-        self.min_distance = min_distance
-        self.max_distance = max_distance
+        self.min_distance = configs.min_distance
+        self.max_distance = configs.max_distance
         self.is_last = False
 
-        self.mean = np.array([0.0, 0.0, 0.0])
-        self.scale = np.array([111319.49082349832, 111319.49079327358, 1.0])
-
-    def convert_gps_to_carla(self, gps):
-        """
-        Converts GPS signal into the CARLA coordinate frame
-        :param gps: gps from gnss sensor
-        :return: gps as numpy array in CARLA coordinates
-        """
-        gps = (gps - self.mean) * self.scale
-        # GPS uses a different coordinate system than CARLA.
-        # This converts from GPS -> CARLA (90° rotation)
-        gps = np.array([gps[1], -gps[0], gps[2]])
-        return gps
+        self.mean = np.array(configs.mean)
+        self.scale = np.array(configs.scale)
 
     def set_route(self, global_plan, gps=False, carla_map=None):
         self.route.clear()
@@ -51,8 +43,10 @@ class RoutePlanner:
         for pos, cmd in global_plan:
             if gps:
                 warnings.warn("deprecated", DeprecationWarning)
+                # GPS uses a different coordinate system than CARLA.
+                # This converts from GPS -> CARLA (90° rotation)
                 pos = np.array([pos["lat"], pos["lon"], pos["z"]])
-                pos = self.convert_gps_to_carla(pos)
+                pos = (pos - self.mean) * self.scale
             else:
                 # important to use the z variable, otherwise there are some rare bugs at
                 # carla.map.get_waypoint(carla.Location) and the wrong wp is returned
@@ -150,16 +144,15 @@ def interpolate_trajectory(
     world_map, waypoints_trajectory, hop_resolution=1.0, max_len=400
 ):
     """
-    Given some raw keypoints interpolate a full dense trajectory to be used
-    by the user.
-    returns the full interpolated route both in GPS coordinates and also in
-    its original form.
+    Given some raw keypoints interpolate a full dense trajectory to be used by the user.
 
     Args:
-    - world: a reference to the CARLA world so we can use the planner
-    - waypoints_trajectory: the current coarse trajectory
-    - hop_resolution: is the resolution, how dense is the provided
-    trajectory going to be made
+        world: A reference to the CARLA world so we can use the planner
+        waypoints_trajectory: The current coarse trajectory
+        hop_resolution: The resolution, how dense is the provided trajectory going to be made.
+
+    Returns:
+        The full interpolated route both in GPS coordinates and also in its original form.
     """
 
     grp = GlobalRoutePlanner(world_map, hop_resolution)
@@ -219,10 +212,6 @@ def extrapolate_waypoint_route(waypoint_route, route_points):
 def location_route_to_gps(route, lat_ref, lon_ref):
     """
     Locate each waypoint of the route into gps, (lat long ) representations.
-    :param route:
-    :param lat_ref:
-    :param lon_ref:
-    :return:
     """
     gps_route = []
 
@@ -235,8 +224,10 @@ def location_route_to_gps(route, lat_ref, lon_ref):
 
 def _get_latlon_ref(world_map):
     """
-    Convert from waypoints world coordinates to CARLA GPS coordinates
-    :return: tuple with lat and lon coordinates
+    Convert from waypoints world coordinates to CARLA GPS coordinates.
+
+    Returns:
+        tuple: The latitude and longitude reference for the current map.
     """
     xodr = world_map.to_opendrive()
     tree = ET.ElementTree(ET.fromstring(xodr))
@@ -247,9 +238,9 @@ def _get_latlon_ref(world_map):
 
     for opendrive in tree.iter("OpenDRIVE"):
         for header in opendrive.iter("header"):
-            for georef in header.iter("geoReference"):
-                if georef.text:
-                    str_list = georef.text.split(" ")
+            for geo_ref in header.iter("geoReference"):
+                if geo_ref.text:
+                    str_list = geo_ref.text.split(" ")
                     for item in str_list:
                         if "+lat_0" in item:
                             lat_ref = float(item.split("=")[1])
@@ -261,10 +252,14 @@ def _get_latlon_ref(world_map):
 def _location_to_gps(lat_ref, lon_ref, location):
     """
     Convert from world coordinates to GPS coordinates
-    :param lat_ref: latitude reference for the current map
-    :param lon_ref: longitude reference for the current map
-    :param location: location to translate
-    :return: dictionary with lat, lon and height
+
+    Args:
+        lat_ref: Latitude reference for the current map
+        lon_ref: Longitude reference for the current map
+        location: Location to translate
+
+    Returns:
+        dict: A dictionary with lat, lon and height
     """
 
     EARTH_RADIUS_EQUA = 6378137.0

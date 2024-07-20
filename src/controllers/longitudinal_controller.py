@@ -1,8 +1,8 @@
 ##!/usr/bin/env python3
 # @File: longitudinal_controller.py
-# @Description:
+# @Description: Longitudinal controller for the vehicle.
 # @CreatedTime: 2024/07/08
-# @Author: PDM-Lite
+# @Author: Yueyuan Li, PDM-Lite
 
 import numpy as np
 
@@ -18,17 +18,17 @@ class LongitudinalPIDController(ControllerBase):
     This class was used for the ablations. Currently, the expert agent uses the linear regression controller for longitudinal control by default.
     """
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, configs):
+        super().__init__(configs)
 
         # These parameters are tuned with Bayesian Optimization on a test track
-        self.proportional_gain = self.config.longitudinal_pid_proportional_gain
-        self.derivative_gain = self.config.longitudinal_pid_derivative_gain
-        self.integral_gain = self.config.longitudinal_pid_integral_gain
-        self.max_window_length = self.config.longitudinal_pid_max_window_length
-        self.speed_error_scaling = self.config.longitudinal_pid_speed_error_scaling
-        self.braking_ratio = self.config.longitudinal_pid_braking_ratio
-        self.minimum_target_speed = self.config.longitudinal_pid_minimum_target_speed
+        self.kp = self.configs.kp
+        self.kd = self.configs.kd
+        self.ki = self.configs.ki
+        self.window_size = self.configs.window_size
+        self.speed_error_scale = self.configs.speed_error_scale
+        self.braking_ratio = self.configs.braking_ratio
+        self.min_target_speed = self.configs.min_target_speed
 
     def get_throttle_and_brake(self, hazard_brake, target_speed, current_speed):
         """
@@ -49,7 +49,7 @@ class LongitudinalPIDController(ControllerBase):
             return throttle, brake
 
         target_speed = max(
-            self.minimum_target_speed, target_speed
+            self.min_target_speed, target_speed
         )  # Avoid very small target speeds
 
         current_speed, target_speed = (
@@ -59,18 +59,16 @@ class LongitudinalPIDController(ControllerBase):
 
         # Test if the speed is "much" larger than the target speed
         if current_speed / target_speed > self.braking_ratio:
-            self.error_history = [0] * self.max_window_length
+            self.error_history = [0] * self.window_size
 
             throttle, brake = 0.0, True
             return throttle, brake
 
         speed_error = target_speed - current_speed
-        speed_error = (
-            speed_error + speed_error * current_speed * self.speed_error_scaling
-        )
+        speed_error = speed_error + speed_error * current_speed * self.speed_error_scale
 
         self.error_history.append(speed_error)
-        self.error_history = self.error_history[-self.max_window_length :]
+        self.error_history = self.error_history[-self.window_size :]
 
         derivative = (
             0
@@ -79,11 +77,7 @@ class LongitudinalPIDController(ControllerBase):
         )
         integral = np.mean(self.error_history)
 
-        throttle = (
-            self.proportional_gain * speed_error
-            + self.derivative_gain * derivative
-            + self.integral_gain * integral
-        )
+        throttle = self.kp * speed_error + self.kd * derivative + self.ki * integral
         throttle, brake = np.clip(throttle, 0.0, 1.0), False
 
         return throttle, brake
@@ -99,7 +93,9 @@ class LongitudinalPIDController(ControllerBase):
         Returns:
             float: The throttle value.
         """
-        return self.get_throttle(False, target_speed, current_speed)
+        raise NotImplementedError(
+            "This method is not implemented for the PID controller."
+        )
 
 
 class LongitudinalLinearRegressionController(ControllerBase):
@@ -109,24 +105,17 @@ class LongitudinalLinearRegressionController(ControllerBase):
     Adapted from https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/team_code/longitudinal_controller.py.
     """
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, configs):
+        super().__init__(configs)
 
-        self.minimum_target_speed = (
-            self.config.longitudinal_linear_regression_minimum_target_speed
-        )
-        self.params = self.config.longitudinal_linear_regression_params
-        self.maximum_acceleration = (
-            self.config.longitudinal_linear_regression_maximum_acceleration
-        )
-        self.maximum_deceleration = (
-            self.config.longitudinal_linear_regression_maximum_deceleration
-        )
+        self.min_target_speed = self.configs.min_target_speed
+        self.max_acceleration = self.configs.max_acceleration
+        self.max_deceleration = self.configs.max_deceleration
+        self.params = self.configs.params
 
     def get_throttle_and_brake(self, hazard_brake, target_speed, current_speed):
         """
-        Get the throttle and brake values based on the target speed, current speed, and hazard brake condition using a
-        linear regression model.
+        Get the throttle and brake values based on the target speed, current speed, and hazard brake condition using a linear regression model.
 
         Args:
             hazard_brake (bool): Flag indicating whether to apply hazard braking.
@@ -138,19 +127,18 @@ class LongitudinalLinearRegressionController(ControllerBase):
         """
         if target_speed < 1e-5 or hazard_brake:
             return 0.0, True
-        elif target_speed < self.minimum_target_speed:  # Avoid very small target speeds
-            target_speed = self.minimum_target_speed
+        elif target_speed < self.min_target_speed:  # Avoid very small target speeds
+            target_speed = self.min_target_speed
 
         current_speed = current_speed * 3.6
         target_speed = target_speed * 3.6
-        params = self.params
         speed_error = target_speed - current_speed
 
         # Maximum acceleration 1.9 m/tick
-        if speed_error > self.maximum_acceleration:
+        if speed_error > self.max_acceleration:
             return 1.0, False
 
-        if current_speed / target_speed > params[-1] or hazard_brake:
+        if current_speed / target_speed > self.params[-1] or hazard_brake:
             throttle, control_brake = 0.0, True
             return throttle, control_brake
 
@@ -167,13 +155,14 @@ class LongitudinalLinearRegressionController(ControllerBase):
             ]
         )
 
-        throttle, control_brake = np.clip(features @ params[:-1], 0.0, 1.0), False
+        throttle, control_brake = np.clip(features @ self.params[:-1], 0.0, 1.0), False
 
         return throttle, control_brake
 
     def get_throttle_extrapolation(self, target_speed, current_speed):
         """
         Get the throttle value for the given target speed and current speed, assuming no hazard brake condition.
+
         This method is used for forecasting.
 
         Args:
@@ -185,19 +174,18 @@ class LongitudinalLinearRegressionController(ControllerBase):
         """
         current_speed = current_speed * 3.6  # Convert to km/h
         target_speed = target_speed * 3.6  # Convert to km/h
-        params = self.params
         speed_error = target_speed - current_speed
 
         # Maximum acceleration 1.9 m/tick
-        if speed_error > self.maximum_acceleration:
+        if speed_error > self.max_acceleration:
             return 1.0
         # Maximum deceleration -4.82 m/tick
-        elif speed_error < self.maximum_deceleration:
+        elif speed_error < self.max_deceleration:
             return 0.0
 
         throttle = 0.0
         # 0.1 to ensure small distances are overcome fast
-        if target_speed < 0.1 or current_speed / target_speed > params[-1]:
+        if target_speed < 0.1 or current_speed / target_speed > self.params[-1]:
             return throttle
 
         speed_error_cl = (
@@ -215,6 +203,6 @@ class LongitudinalLinearRegressionController(ControllerBase):
             ]
         ).flatten()
 
-        throttle = np.clip(features @ params[:-1], 0.0, 1.0)
+        throttle = np.clip(features @ self.params[:-1], 0.0, 1.0)
 
         return throttle

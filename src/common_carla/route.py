@@ -46,19 +46,16 @@ def get_route_polygon(planner, max_distance, offset=0.0) -> Polygon:
     return Polygon(list_points)
 
 
-def sort_scenarios_by_distance(vehicle):
-    """Sorts the active scenarios based on the distance from the ego vehicle.
-
-    Args:
-        vehicle (_type_): _description_
+def sort_scenarios_by_distance(ego_location):
+    """
+    Sorts the active scenarios based on the distance from the ego vehicle.
     """
     distances = []
-    vehicle_location = vehicle.get_location()
 
     # Calculate the distance of each scenario's first actor from the ego vehicle
     for _, scenario_data in Cheater.active_scenarios:
-        first_actor_location = scenario_data[0].get_location()
-        distances.append(vehicle_location.distance(first_actor_location))
+        first_actor = scenario_data[0]
+        distances.append(ego_location.distance(first_actor.get_location()))
 
     # Sort the scenarios based on the calculated distances
     indices = np.argsort(distances)
@@ -70,7 +67,7 @@ def compute_min_time_for_distance(
     target_speed,
     ego_speed,
     time_step,
-    compute_min_time_to_cover_distance_params,
+    params_min_time_cover_distance,
 ):
     """
     Computes the minimum time the ego vehicle needs to travel a given distance.
@@ -79,6 +76,8 @@ def compute_min_time_for_distance(
         distance (float): The distance to be traveled.
         target_speed (float): The target speed of the ego vehicle.
         ego_speed (float): The current speed of the ego vehicle.
+        time_step (float): The time step to be used for the computation.
+        params_min_time_cover_distance (list): Parameters to calculate how much the ego agent needs to cover a given distance. Values are taken from the kinematic bicycle model
 
     Returns:
         float: The minimum time needed to travel the given distance.
@@ -98,12 +97,11 @@ def compute_min_time_for_distance(
 
         # Values from kinematic bicycle model
         normalized_speed = current_speed / 120.0
-        speed_change_params = compute_min_time_to_cover_distance_params
         speed_change = np.clip(
-            speed_change_params[0]
-            + normalized_speed * speed_change_params[1]
-            + speed_change_params[2] * normalized_speed**2
-            + speed_change_params[3] * normalized_speed**3,
+            params_min_time_cover_distance[0]
+            + params_min_time_cover_distance[1] * normalized_speed
+            + params_min_time_cover_distance[2] * normalized_speed**2
+            + params_min_time_cover_distance[3] * normalized_speed**3,
             0.0,
             np.inf,
         )
@@ -117,35 +115,34 @@ def compute_min_time_for_distance(
     return min_time_needed
 
 
-def get_previous_road_lane_ids(starting_waypoint, previous_road_lane_retrieve_distance):
+def get_previous_road_lane_ids(start_wp, distance_retrieve_id):
     """
     Retrieves the previous road and lane IDs for a given starting waypoint.
 
     Args:
-        starting_waypoint (carla.Waypoint): The starting waypoint.
+        start_wp (carla.Waypoint): The starting waypoint.
+        distance_retrieve_id (int): Distance to check for road_id/lane_id for RouteObstacle scenarios
 
     Returns:
         list: A list of tuples containing road IDs and lane IDs.
     """
-    current_waypoint = starting_waypoint
-    previous_road_lane_ids = [(current_waypoint.road_id, current_waypoint.lane_id)]
+    current_wp = start_wp
+    previous_road_lane_ids = [(current_wp.road_id, current_wp.lane_id)]
 
     # Traverse backwards up to 100 waypoints to find previous lane IDs
-    for _ in range(previous_road_lane_retrieve_distance):
-        previous_waypoints = current_waypoint.previous(1)
+    for _ in range(distance_retrieve_id):
+        previous_wps = current_wp.previous(1)
 
         # Check if the road ends and no previous route waypoints exist
-        if len(previous_waypoints) == 0:
+        if len(previous_wps) == 0:
             break
-        current_waypoint = previous_waypoints[0]
+        current_wp = previous_wps[0]
 
         if (
-            current_waypoint.road_id,
-            current_waypoint.lane_id,
+            current_wp.road_id,
+            current_wp.lane_id,
         ) not in previous_road_lane_ids:
-            previous_road_lane_ids.append(
-                (current_waypoint.road_id, current_waypoint.lane_id)
-            )
+            previous_road_lane_ids.append((current_wp.road_id, current_wp.lane_id))
 
     return previous_road_lane_ids
 
@@ -156,18 +153,19 @@ def is_near_lane_change(
     route_index,
     commands,
     safety_distance=10.0,
-    minimum_lookahead_points=200,
-    previous_points=150,
+    min_point_lookahead=200,
+    min_point_previous=150,
     points_per_meter=10,
 ):
-    """Check if the vehicle is near a lane change maneuver.
+    """
+    Check if the vehicle is near a lane change maneuver.
 
     Args:
         vehicle (_type_): _description_
         route_points (np.ndarray): An array of locations representing the planned route.
         safety_distance (float): Safety distance to be added to emergency braking distance.
-        minimum_lookahead_points (int): Minimum number of points to look ahead when checking for lane change.
-        previous_points (int): Number of previous points to consider when checking for lane change.
+        min_point_lookahead (int): Minimum number of points to look ahead when checking for lane change.
+        min_point_previous (int): Minimum number of previous points to consider when checking for lane change.
         points_per_meter (int): Points sampled per meter when interpolating route.
 
     Returns:
@@ -180,11 +178,11 @@ def is_near_lane_change(
 
     # Determine the number of waypoints to look ahead based on the braking distance
     look_ahead_points = max(
-        minimum_lookahead_points,
+        min_point_lookahead,
         min(route_points.shape[0], points_per_meter * int(braking_distance)),
     )
 
-    from_index = max(0, route_index - previous_points)
+    from_index = max(0, route_index - min_point_previous)
     to_index = min(len(commands) - 1, route_index + look_ahead_points)
     # Iterate over the points around the current position, checking for lane change commands
     for i in range(from_index, to_index, 1):
@@ -206,15 +204,15 @@ def is_overtaking_path_clear(
     from_index,
     to_index,
     previous_road_lane_ids,
-    check_path_free_safety_distance,
-    check_path_free_safety_time,
+    safety_distance_check_path_free,
+    safety_time_check_path_free,
     min_speed=50.0 / 3.6,
 ):
     """
     Checks if the path between two route indices is clear for the ego vehicle to overtake.
 
     Args:
-        list_vehicles (list): A list of all vehicles in the simulation.
+        vehicle_list (list): A list of all vehicles in the simulation.
         target_speed (float): The target speed of the ego vehicle.
         from_index (int): The starting route index.
         to_index (int): The ending route index.
@@ -239,7 +237,7 @@ def is_overtaking_path_clear(
     ego_distance = (
         to_location.distance(ego_location)
         + ego_bbox.extent.x * 2
-        + check_path_free_safety_distance
+        + safety_distance_check_path_free
     )
 
     ego_time = compute_min_time_for_distance(
@@ -284,7 +282,7 @@ def is_overtaking_path_clear(
 
             # Add 200 ms safety margin
             # Vehicle needs less time to arrive at to_location than the ego vehicle
-            if other_vehicle_time < ego_time + check_path_free_safety_time:
+            if other_vehicle_time < ego_time + safety_time_check_path_free:
                 path_clear = False
                 break
 

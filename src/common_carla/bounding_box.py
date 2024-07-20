@@ -315,12 +315,8 @@ def check_obb_intersection(obb1: carla.BoundingBox, obb2: carla.BoundingBox):
 
 
 def is_point_in_bbox(point, bbox_center, bbox_extent):
-    """Check if a point is inside a 2D bounding box.
-
-    Args:
-        point (_type_): _description_
-        bbox_center (_type_): _description_
-        bbox_extent (_type_): _description_
+    """
+    Check if a point is inside a 2D bounding box.
     """
     # bugfix slim bbox
     bbox_extent.x = max(bbox_extent.x, bbox_extent.y)

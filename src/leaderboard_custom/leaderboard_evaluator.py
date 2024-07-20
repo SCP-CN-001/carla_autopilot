@@ -16,7 +16,6 @@ import os
 import pathlib
 import random
 import signal
-import socket
 import sys
 import traceback
 from argparse import RawTextHelpFormatter
@@ -31,6 +30,7 @@ from leaderboard.envs.sensor_interface import SensorConfigurationInvalid
 from leaderboard.utils.route_indexer import RouteIndexer
 from leaderboard.utils.statistics_manager import FAILURE_MESSAGES, StatisticsManager
 from srunner.scenariomanager.carla_data_provider import *
+from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
 
@@ -140,8 +140,8 @@ class LeaderboardEvaluator:
 
     def _get_running_status(self):
         """
-        returns:
-           bool: False if watchdog exception occured, True otherwise
+        Returns:
+           bool: False if watchdog exception occurred, True otherwise
         """
         if self._agent_watchdog:
             return self._agent_watchdog.get_status()
@@ -353,20 +353,12 @@ class LeaderboardEvaluator:
                 self._ros1_server = ROS1Server()
                 self._ros1_server.start()
 
-            # self.agent_instance = agent_class_obj(args.host, args.port, args.debug)
-            if int(os.environ.get("DATAGEN", 0)) == 1:
-                self.agent_instance = agent_class_obj(args.agent_config, config.index)
-            else:
-                self.agent_instance = agent_class_obj(
-                    args.agent_config, route_date_string
-                )
+            self.agent_instance = agent_class_obj(args.host, args.port, args.debug)
 
             self.agent_instance.set_global_plan(
                 self.route_scenario.gps_route, self.route_scenario.route
             )
-            self.agent_instance.setup(
-                args.agent_config, route_date_string, self.traffic_manager
-            )
+            self.agent_instance.setup(args.agent_config)
 
             # Check and store the sensors
             if not self.sensors:

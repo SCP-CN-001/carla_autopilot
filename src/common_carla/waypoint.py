@@ -1,10 +1,7 @@
 import carla
-from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
 
-def get_ego_waypoint():
-    world = CarlaDataProvider.get_world()
-    ego_vehicle = CarlaDataProvider.get_hero_actor()
+def get_ego_waypoint(world, ego_vehicle):
     ego_waypoint = world.get_map().get_waypoint(
         ego_vehicle.get_location(),
         project_to_road=True,
@@ -13,9 +10,9 @@ def get_ego_waypoint():
     return ego_waypoint
 
 
-def get_next_waypoints():
+def get_next_waypoints(world, ego_vehicle):
     """Get the waypoints from the current waypoint the ego vehicle is at to the end of the lane."""
-    ego_waypoint = get_ego_waypoint()
+    ego_waypoint = get_ego_waypoint(world, ego_vehicle)
     try:
         current_road_id = ego_waypoint.road_id
         current_lane_id = ego_waypoint.lane_id

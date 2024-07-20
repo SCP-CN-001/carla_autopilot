@@ -1,0 +1,327 @@
+# -------------------------------------------------------------
+# World and map
+# -------------------------------------------------------------
+
+visualize: false
+track: none
+save_path: none
+frame_rate_carla: 20.0
+time_step_carla: 1.0 / ${frame_rate_carla}
+
+# Time in seconds to draw the things during debugging.
+draw_life_time: 0.051
+color:
+  bbox_ego_vehicle: (0, 0, 0, 1)
+  bbox_leading_vehicle: (1, 0, 0, 0)
+  bbox_forecasted_normal: (0, 1, 0, 0)
+  bbox_forecasted_hazard: (1, 0, 0, 0)
+  bbox_forecasted_other_vehicle: (0, 0, 1, 1)
+  bbox_forecasted_walker: (0, 0, 1, 1)
+  future_route: (0, 1, 0)
+
+# -------------------------------------------------------------
+# Expert agent
+# -------------------------------------------------------------
+# Points sampled per meter when interpolating route.
+points_per_meter: 10
+# Minimum number of points to look ahead when checking for lane change.
+min_lookahead_near_lane_change: 20 * ${points_per_meter}
+# Minimum number of previous points to consider when checking for lane change.
+min_previous_near_lane_change: 15 * ${points_per_meter}
+# Lookahead distance to check, whether the ego is close to a junction
+max_lookahead_near_junction: 30 * ${points_per_meter}
+
+# Ratio between the the speed limit / curvature dependent speed limit and the target speed.
+# By default the other vehicles drive with 70 % of the speed limit. To avoid collisions we have to be a bit faster.
+factor_target_speed_limit: 0.72
+# Maximum seed in junctions in m/s
+max_speed_junction: 64.0 / 3.6
+# Default overtaking speed in m/s for all route obstacle scenarios
+speed_overtake: 50.0 / 3.6
+# Overtaking speed in m/s for vehicle opens door two ways scenarios
+speed_overtake_vehicle_opens_door_two_ways: 40.0 / 3.6
+
+# Distance of obstacles (in meters) in which we will check for collisions
+detection_radius: 50.0
+# Distance of traffic lights considered relevant (in meters)
+light_radius: 15.0
+# Distance of stop signs considered relevant (in meters)
+stop_sign_radius: 15.0
+
+# Safety distance to be added to emergency braking distance
+safety_distance_addition_to_braking_distance: 10
+# Distance to the stop sign, when the previous stop sign is uncleared
+distance_stop_sign_unclear: 10.0
+# Distance to the stop sign, when the previous stop sign is cleared
+distance_stop_sign_clear: 3.0
+# Distance of the first checkpoint, use the same value as in Transfuser++
+distance_first_checkpoint: 2.5 * ${points_per_meter}
+# Distance to check for road_id/lane_id for RouteObstacle scenarios
+distance_retrieve_id: 100
+# Minimum distance to process the route obstacle scenarios
+distance_process_scenario: 50
+# Minimum distance to process HazardAtSideLane
+distance_process_hazard_side_lane: 25
+# Minimum distance to process HazardAtSideLaneTwoWays
+distance_process_hazard_side_lane_two_ways: 10
+# Distance in meters at which two ways scenarios are considered finished
+distance_delete_scenario_in_two_ways: 2 * ${points_per_meter}
+# Distance over which lane shift transition is smoothed  in meters.
+distance_smooth_transition: 8 * ${points_per_meter}
+# Maximum distance to start the overtaking maneuver
+distance_overtake_two_way_scenario: 8 * ${points_per_meter}
+# Transition distance for change lane in scenario ConstructionObstacle
+distance_smooth_transition_construction_obstacle: 10.5 * ${points_per_meter}
+# Transition distance for change lane in scenario ConstructionObstacleTwoWays
+distance_smooth_transition_construction_obstacle_two_ways: 4 * ${points_per_meter}
+# Transition distance for change lane in scenario ParkedObstacleTwoWays
+distance_smooth_transition_parked_obstacle_two_ways: 4 * ${points_per_meter}
+# Transition distance for change lane in scenario VehicleOpensDoorTwoWays
+distance_smooth_transition_vehicle_opens_door_two_ways: 4 * ${points_per_meter}
+# Transition distance for change lane in scenario AccidentTwoWays
+distance_smooth_transition_accident_two_ways: 4 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario AccidentTwoWays before the obstacle
+distance_before_accident_two_ways: -1.5 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario ConstructionObstacle before the obstacle
+distance_before_construction_obstacle_two_ways: 1.5 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario ParkedObstacleTwoWays before the obstacle
+distance_before_parked_obstacle_two_ways: -0.5 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario VehicleOpensDoorTwoWays before the obstacle
+distance_before_vehicle_opens_door_two_ways: -2.0 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario AccidentTwoWays after the obstacle
+distance_after_accident_two_ways: -1.5 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario ConstructionObstacleTwoWays after the obstacle
+distance_after_construction_obstacle_two_ways: 1.5 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario ParkedObstacleTwoWays after the obstacle
+distance_after_parked_obstacle_two_ways: -0.5 * ${points_per_meter}
+# Increase overtaking maneuver by distance in meters in the scenario VehicleOpensDoorTwoWays after the obstacle
+distance_after_vehicle_opens_door_two_ways: -2.0 * ${points_per_meter}
+
+# Safety distance during checking if the path is free for RouteObstacle scenarios
+safety_distance_check_path_free: 10
+# Safety time headway during checking if the path is free for RouteObstacle scenarios
+safety_time_check_path_free: 0.2
+
+# Parameters to calculate how much the ego agent needs to cover a given distance. Values are taken from the kinematic bicycle model
+params_min_time_cover_distance: [0.00904221, 0.00733342, -0.03744807, 0.0235038]
+
+# Frame rate used for the bicycle models in the autopilot
+frame_rate_bicycle: 20
+
+# Forecast time duration in seconds when not near a lane change
+forecast_duration_default: 2.0
+# Forecast time duration in seconds when near a lane change
+forecast_duration_lane_change: 1.1
+
+# Factor to increase the ego vehicles bounding boxes in x direction during forecasting when speed > extent_ego_bounding boxes_speed_threshold
+extent_factor_x_ego_high_speed: 1.3
+# Factor to increase the ego vehicles bounding boxes in y direction during forecasting when speed > extent_ego_bounding boxes_speed_threshold
+extent_factor_y_ego_high_speed: 1.2
+# Factor to increase the ego vehicles bounding boxes in x direction during forecasting when speed < extent_ego_bounding boxes_speed_threshold
+extent_factor_x_ego_low_speed: 1.0
+# Factor to increase the ego vehicles bounding boxes in y direction during forecasting when speed < extent_ego_bounding boxes_speed_threshold
+extent_factor_y_ego_low_speed: 1.0
+speed_threshold_ego: 5.0
+# Speed threshold to select which factor is used during other vehicle bounding boxes forecasting
+speed_threshold_other_vehicle: 1.0
+
+# Minimum extent factor to scale bounding boxes while forecasting other vehicles in x direction
+min_extent_factor_x_other_vehicle: 1.2
+# Minimum extent factor to scale bounding boxes while forecasting other vehicles in y direction
+min_extent_factor_y_other_vehicle: 1.0
+# Extent factor to scale bounding boxes while forecasting other vehicles in x direction
+extent_factor_x_other_vehicle: 1.5
+# Extent factor to scale bounding boxes while forecasting other vehicles in y direction
+extent_factor_y_other_vehicle: 1.3
+
+#  Minimum extent factor to scale bounding boxes while forecasting other vehicles in x direction during lane change
+min_extent_factor_x_other_vehicle_lane_change: 2.0
+
+# -------------------------------------------------------------
+# IDM model
+# ------------------------------------------------------------
+idm:
+  # Maximum acceleration of the vehicle (m/s^2)
+  max_acceleration: 24.0
+  # Acceleration exponent
+  acceleration_exponent: 4.0
+  # Boundary time - the integration won’t continue beyond it.
+  time_boundary: 0.05
+  # The threshold speed for adapting the comfortable braking deceleration (m/s)
+  comfortable_braking_threshold_speed: 6.02
+  # Maximum comfortable deceleration of the vehicle (m/s^2) for high speed
+  comfortable_braking_deceleration_high_speed: 3.72
+  # Maximum comfortable deceleration of the vehicle (m/s^2) for low speed
+  comfortable_braking_deceleration_low_speed: 8.7
+  # Minimum distance for leading vehicles
+  min_distance_leading_vehicle: 4.0
+  # Minimum distance for bicycles
+  min_distance_bicycle: 4.0
+  # Minimum distance for walkers
+  min_distance_walker: 4.0
+  # Minimum distance for traffic lights
+  min_distance_traffic_light: 6.0
+  # Minimum distance for stop signs
+  min_distance_stop_sign: 2.0
+  # Minimum distance for two way scenarios
+  min_distance_two_way_scenario: 2.0
+  # Desired headway time for leading vehicles
+  time_leading_vehicle: 0.25
+  # Desired headway time for bicycles
+  time_bicycle: 0.25
+  # Desired headway time for walkers
+  time_walker: 0.25
+  # Desired headway time for traffic lights
+  time_traffic_light: 0.1
+  # Desired headway time for stop signs
+  time_stop_sign: 0.1
+# Desired headway time for two way scenarios
+  time_two_way_scenario: 0.1
+
+# -------------------------------------------------------------
+# Kinematic Bicycle Model
+# -------------------------------------------------------------
+#  Time step for the model (20 frames per second).
+kinematic_bicycle_model:
+  time_step: 1.0 / 20.0
+  # Kinematic bicycle model parameters tuned from World on Rails.
+  # Distance from the rear axle to the front axle of the vehicle.
+  front_wheel_base: -0.090769015
+  # Distance from the rear axle to the center of the rear wheels.
+  rear_wheel_base: 1.4178275
+  # Gain factor for steering angle to wheel angle conversion.
+  steering_gain: 0.36848336
+  # Deceleration rate when braking (m/s^2) of other vehicles.
+  brake_acceleration: -4.952399
+  # Acceleration rate when throttling (m/s^2) of other vehicles.
+  throttle_acceleration: 0.5633837
+
+  # Tuned parameters for the polynomial equations modeling speed changes
+  # Numbers are tuned parameters for the polynomial equations below using
+  # a dataset where the car drives on a straight highway, accelerates to
+  # and brakes again
+  # Coefficients for polynomial equation estimating speed change with throttle input for ego model.
+  throttle_values: [9.63873001e-01, 4.37535692e-04, -3.80192912e-01, 1.74950069e00, 9.16787414e-02, -7.05461530e-02,
+    -1.05996152e-03, 6.71079346e-04]
+  # Coefficients for polynomial equation estimating speed change with brake input for the ego model.
+  brake_values: [9.31711370e-03, 8.20967431e-02, -2.83832427e-03, 5.06587474e-05, -4.90357228e-07, 2.44419284e-09,
+    -4.91381935e-12]
+  # Minimum throttle value that has an affect during forecasting the ego vehicle.
+  throttle_threshold_during_forecasting: 0.3
+
+# -------------------------------------------------------------
+# Lane shift
+# -------------------------------------------------------------
+
+lane_shift:
+  extension_length_for_yield_to_emergency_vehicle: 20 * ${points_per_meter}
+  start_distance_invading_turn: 20 * ${points_per_meter}
+  end_distance_invading_turn: 8 * ${points_per_meter}
+
+# -------------------------------------------------------------
+# Longitudinal PID Controller
+# -------------------------------------------------------------
+# These parameters are tuned with Bayesian Optimization on a test track
+longitudinal_pid_controller:
+  # The proportional gain for the longitudinal PID controller.
+  kp: 1.0016429066823955
+  # The derivative gain for the longitudinal PID controller.
+  kd: 1.5761818624794222
+  # The integral gain for the longitudinal PID controller.
+  ki: 0.2941563856687906
+  # The scaling factor used for speed error based on current speed for longitudinal pid controller.
+  speed_error_scale: 0.0
+  # The size of the sliding window used to store the error history for the longitudinal PID controller.
+  window_size: 0
+  # Ratio to determine when to apply braking for longitudinal pid controller.
+  braking_ratio: 1.0324622059220139
+  # Minimum threshold for target speed (< 1 km/h) for longitudinal pid controller.
+  min_target_speed: 0.278
+
+# -------------------------------------------------------------
+# Longitudinal Linear Regression Controller
+# -------------------------------------------------------------
+# These parameters are tuned with Bayesian Optimization on a test track
+longitudinal_linear_regression_controller:
+  # Minimum threshold for target speed (< 1 km/h) for longitudinal linear regression controller.
+  min_target_speed: 0.278
+  # Maximum acceleration rate (approximately 1.9 m/tick) for the longitudinal linear regression controller.
+  max_acceleration: 1.89
+  # Maximum deceleration rate (approximately -4.82 m/tick) for the longitudinal linear regression controller.
+  max_deceleration: -4.82
+  # Coefficients of the linear regression model used for throttle calculation.
+  params: [1.1990342347353184, -0.8057602384167799, 1.710818710950062, 0.921890257450335, 1.556497522998393,
+    -0.7013479734904027, 1.031266635497984]
+
+# -------------------------------------------------------------
+# Lateral PID Controller
+# -------------------------------------------------------------
+# These parameters are tuned with Bayesian Optimization on a test track
+lateral_pid_controller:
+  # The proportional gain for the lateral PID controller.
+  kp: 3.118357247806046
+  # The derivative gain for the lateral PID controller.
+  kd: 1.3782508892109167
+  # The integral gain for the lateral PID controller.
+  ki: 0.6406067986034124
+  # The scaling factor used in the calculation of the lookahead distance based on the current speed.
+  speed_scale: 0.9755321901954155
+  # The offset used in the calculation of the lookahead distance based on the current speed.
+  speed_offset: 1.9152884533402488
+  # The default lookahead distance for the lateral PID controller.
+  default_lookahead: 2.4 * ${points_per_meter}
+  # The speed threshold (in km/h) for switching between the default and variable lookahead distance.
+  speed_threshold: 2.3150102938235136 * ${points_per_meter}
+  # The size of the sliding window used to store the error history for the lateral PID controller.
+  window_size: 6
+  # The minimum allowed lookahead distance for the lateral PID controller.
+  min_lookahead_distance: 2.4 * ${points_per_meter}
+  # The maximum allowed lookahead distance for the lateral PID controller.
+  max_lookahead_distance: 10.5 * points_per_meter
+
+# -------------------------------------------------------------
+# Privileged Route Planner
+# -------------------------------------------------------------
+privileged_route_planner:
+  ${points_per_meter}: ${points_per_meter}
+  # Max distance to search ahead for updating ego route index  in meters.
+  search_distance_route_point: 4 * ${points_per_meter}
+  # Distance over which lane shift transition is smoothed  in meters.
+  transition_smoothness_distance: 8 * ${points_per_meter}
+  # Length to extend lane shift transition for YieldToEmergencyVehicle  in meters.
+  lane_shift_extension_length_for_yield_to_emergency_vehicle: 20 * ${points_per_meter}
+  # Distance over which lane shift transition is smoothed for InvadingTurn in meters.
+  lane_shift_start_distance_invading_turn: 15 * ${points_per_meter}
+  lane_shift_end_distance_invading_turn: 10 * ${points_per_meter}
+  # Margin from fence when shifting route in InvadingTurn.
+  fence_avoidance_margin_invading_turn: 0.3
+  # Minimum lane width to avoid early lane changes.
+  minimum_lane_width_threshold: 2.5
+  # Spacing for checking and updating speed limits  in meters.
+  speed_limit_waypoints_spacing_check: 5 * ${points_per_meter}
+  # Max distance on route for detecting leading vehicles.
+  leading_vehicles_max_route_distance: 2.5
+  # Max angle difference for detecting leading vehicles  in meters.
+  leading_vehicles_max_route_angle_distance: 35.0
+  # Max radius for detecting any leading vehicles in meters.
+  leading_vehicles_max_radius: 80 * ${points_per_meter}
+  # Max distance on route for detecting rear vehicles.
+  rear_vehicles_max_route_distance: 3.0
+  # Max route distance for rear vehicles after lane change.
+  rear_vehicles_max_route_distance_lane_change: 6.0
+  # Max radius for detecting any rear vehicles in meters.
+  rear_vehicles_max_radius: 80 * ${points_per_meter}
+  # Max distance to check for lane changes when detecting rear vehicles in meters.
+  rear_vehicles_max_distance_lane_change: 15 * ${points_per_meter}
+  # Distance to extend the end of the route in meters. This makes sure we always have checkpoints,
+  # also at the end of the route.
+  extra_route_length: 50
+
+# -------------------------------------------------------------
+# Route Planner
+# -------------------------------------------------------------
+route_planner:
+  min_distance: 7.5
+  max_distance: 50.0
+  mean: [0.0, 0.0, 0.0]
+  scale: [111319.49082349832, 111319.49079327358, 1.0]

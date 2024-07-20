@@ -44,8 +44,8 @@ def tint(color, factor):
 
 
 class ObservationManager:
-    """
-    Utilities to render bird's eye view semantic segmentation maps.
+    """Utilities to render bird's eye view semantic segmentation maps.
+
     Code adapted from https://github.com/zhejz/carla-roach/blob/main/carla_gym/core/obs_manager/birdview/chauffeurnet.py
     """
 

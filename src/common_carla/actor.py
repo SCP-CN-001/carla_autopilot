@@ -10,10 +10,8 @@ from src.common_carla.route import get_route_polygon
 
 
 def get_forward_speed(actor):
-    """Calculate the forward speed of the actor.
-
-    Args:
-        actor (_type_): _description_
+    """
+    Calculate the forward speed of the actor.
 
     Returns:
         float: The forward speed of the vehicle in m/s.
@@ -40,7 +38,8 @@ def get_forward_speed(actor):
 
 
 def get_horizontal_distance(actor1: carla.Actor, actor2: carla.Actor):
-    """Calculate the horizontal distance between two actors (ignoring the z-coordinate).
+    """
+    Calculate the horizontal distance between two actors (ignoring the z-coordinate).
 
     Returns:
         float: The horizontal distance between the two actors.
@@ -57,6 +56,17 @@ def get_horizontal_distance(actor1: carla.Actor, actor2: carla.Actor):
 
 
 def get_nearby_objects(ego_actor, all_actors, search_radius):
+    """
+    Find actors, who's trigger boxes are within a specified radius around the ego vehicle.
+
+    Args:
+        ego_actor (carla.Actor): The position of the ego actor.
+        all_actors (list): A list of all actors.
+        search_radius (float): The radius (in meters) around the ego vehicle to search for nearby actors.
+
+    Returns:
+        list: A list of actors within the specified search radius.
+    """
     nearby_objects = []
 
     for actor in all_actors:

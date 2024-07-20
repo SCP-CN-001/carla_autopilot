@@ -1,8 +1,9 @@
-"""
-This Python script defines a PrivilegedRoutePlanner class for planning and modifying routes in the CARLA
-simulation environment. The class provides functionalities to create a smooth and interpolated route,
-compute distances to traffic lights and stop signs, handle lane changes, and identify leading and trailing vehicles.
-"""
+##!/usr/bin/env python3
+# @File: privileged_route_planner.py
+# @Description: Defines a PrivilegedRoutePlanner class for planning and modifying routes in CARLA.
+# @CreatedTime: 2024/07/17
+# @Author: Yueyuan Li, PDM-Lite
+
 import os
 
 import carla
@@ -11,11 +12,18 @@ from agents.navigation.local_planner import RoadOption
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 
+from src.common_carla.bounding_box import is_point_in_bbox
+
 
 class PrivilegedRoutePlanner:
     """
-    This class is used the experts navigation and provides not only the route but preprocesses it and provides useful
-    information like the next stop sign and the next traffic light.
+    This class is used the experts navigation and provides not only the route but pre-processes it and provides useful information like the next stop sign and the next traffic light.
+
+    The class provides functionalities to create a smooth and interpolated route, compute distances to traffic lights and stop signs, handle lane changes, and identify leading and rear vehicles.
+
+    Adapted from: https://github.com/autonomousvision/carla_garage/blob/leaderboard_2/team_code/privileged_route_planner.py
+
+    Only change some variable names and add some comments to make the code more readable.
     """
 
     def __init__(self, configs):
@@ -23,22 +31,20 @@ class PrivilegedRoutePlanner:
         Initialize the RoutePlanner object.
 
         Args:
-            config (GlobalConfig): Object of the config for hyperparameters.
+            config: Object of the config for hyperparameters.
         """
 
         self.points_per_meter = configs.points_per_meter
-        self.ego_vehicles_route_point_search_distance = (
-            configs.ego_vehicles_route_point_search_distance
-        )
+        self.search_distance_route_point = configs.search_distance_route_point
         self.lane_shift_extension_length_for_yield_to_emergency_vehicle = (
             configs.lane_shift_extension_length_for_yield_to_emergency_vehicle
         )
         self.transition_smoothness_distance = configs.transition_smoothness_distance
-        self.route_shift_start_distance_invading_turn = (
-            configs.route_shift_start_distance_invading_turn
+        self.lane_shift_start_distance_invading_turn = (
+            configs.lane_shift_start_distance_invading_turn
         )
-        self.route_shift_end_distance_invading_turn = (
-            configs.route_shift_end_distance_invading_turn
+        self.lane_shift_end_distance_invading_turn = (
+            configs.lane_shift_end_distance_invading_turn
         )
         self.fence_avoidance_margin_invading_turn = (
             configs.fence_avoidance_margin_invading_turn
@@ -53,20 +59,14 @@ class PrivilegedRoutePlanner:
         self.leading_vehicles_max_route_angle_distance = (
             configs.leading_vehicles_max_route_angle_distance
         )
-        self.leading_vehicles_maximum_detection_radius = (
-            configs.leading_vehicles_maximum_detection_radius
+        self.leading_vehicles_max_radius = configs.leading_vehicles_max_radius
+        self.rear_vehicles_max_route_distance = configs.rear_vehicles_max_route_distance
+        self.rear_vehicles_max_route_distance_lane_change = (
+            configs.rear_vehicles_max_route_distance_lane_change
         )
-        self.trailing_vehicles_max_route_distance = (
-            configs.trailing_vehicles_max_route_distance
-        )
-        self.trailing_vehicles_max_route_distance_lane_change = (
-            configs.trailing_vehicles_max_route_distance_lane_change
-        )
-        self.tailing_vehicles_maximum_detection_radius = (
-            configs.tailing_vehicles_maximum_detection_radius
-        )
-        self.max_distance_lane_change_trailing_vehicles = (
-            configs.max_distance_lane_change_trailing_vehicles
+        self.rear_vehicles_max_radius = configs.rear_vehicles_max_radius
+        self.rear_vehicles_max_distance_lane_change = (
+            configs.rear_vehicles_max_distance_lane_change
         )
         self.extra_route_length = configs.extra_route_length
 
@@ -106,7 +106,7 @@ class PrivilegedRoutePlanner:
         Args:
             agent_position (numpy.ndarray): Current location of the agent.
         """
-        till = self.ego_vehicles_route_point_search_distance
+        till = self.search_distance_route_point
         search_range = min(self.route_index + till, self.route_points.shape[0])
 
         # Find the index of the nearest route point to the agent's position
@@ -281,12 +281,7 @@ class PrivilegedRoutePlanner:
             end_index (int): The index of the route waypoint where the shift should end.
             shift_to_left_lane (bool): Whether to shift the route to the left lane.
             transition_length (int): The length of the transition in waypoints.
-            lane_transition_factor (float): A factor between 0 and 1 that controls the amount of shift towards
-                                                the neighboring lane.
-                                            A value of 1.0 means the route will be shifted to the center of
-                                                the neighboring lane,
-                                            while a value of 0.0 means the route will stay in the center of
-                                                the current lane.
+            lane_transition_factor (float): A factor between 0 and 1 that controls the amount of shift towards the neighboring lane. A value of 1.0 means the route will be shifted to the center of the neighboring lane, while a value of 0.0 means the route will stay in the center of the current lane.
         """
         for idx in range(start_index, end_index):
             # Get the location of the left / right center lane
@@ -392,8 +387,8 @@ class PrivilegedRoutePlanner:
 
         # Adjust the route by shifting it laterally between 15m before the first cone and 10m after the last cone
         for idx in range(
-            first_cone_index - self.route_shift_start_distance_invading_turn,
-            last_cone_index + self.route_shift_end_distance_invading_turn,
+            first_cone_index - self.lane_shift_start_distance_invading_turn,
+            last_cone_index + self.lane_shift_end_distance_invading_turn,
         ):
             shift_vector = self.route_points[idx + 1, :2] - self.route_points[idx, :2]
             shift_vector = np.array([[0, -1], [1, 0]]) @ shift_vector
@@ -432,17 +427,10 @@ class PrivilegedRoutePlanner:
 
         Args:
             first_actor (carla.Actor): The first actor around which the route should be shifted.
-            last_actor (carla.Actor, optional): The last actor around which the route should be shifted. If None,
-                        the shift will end after a certain distance from the first actor.
-            obstacle_direction (str): The direction in which the obstacle is located. If it is to the left, we shift
-                        the route to the right and vice versa.
+            last_actor (carla.Actor, optional): The last actor around which the route should be shifted. If None, the shift will end after a certain distance from the first actor.
+            obstacle_direction (str): The direction in which the obstacle is located. If it is to the left, we shift the route to the right and vice versa.
             transition_length (int): The length of the transition in waypoints.
-            lane_transition_factor (float): A factor between 0 and 1 that controls the amount of shift
-                                                towards the neighboring lane.
-                                            A value of 1.0 means the route will be shifted to the center of
-                                                the neighboring lane,
-                                            while a value of 0.0 means the route will stay in the center of
-                                                the current lane.
+            lane_transition_factor (float): A factor between 0 and 1 that controls the amount of shift towards the neighboring lane. A value of 1.0 means the route will be shifted to the center of the neighboring lane, while a value of 0.0 means the route will stay in the center of the current lane.
             extra_length_before (float): Additional length (in meters) to be added before the first actor for the shift.
             extra_length_after (float): Additional length (in meters) to be added after the last actor for the shift.
 
@@ -614,18 +602,24 @@ class PrivilegedRoutePlanner:
         num_original_points = original_route_points.shape[0]
 
         # Create interpolation functions for each dimension
-        interp_x = interp1d(np.arange(num_original_points), original_route_points[:, 0])
-        interp_y = interp1d(np.arange(num_original_points), original_route_points[:, 1])
-        interp_z = interp1d(np.arange(num_original_points), original_route_points[:, 2])
+        interpolate_x = interp1d(
+            np.arange(num_original_points), original_route_points[:, 0]
+        )
+        interpolate_y = interp1d(
+            np.arange(num_original_points), original_route_points[:, 1]
+        )
+        interpolate_z = interp1d(
+            np.arange(num_original_points), original_route_points[:, 2]
+        )
 
         # Interpolate points along the original route
-        x_supersampled = interp_x(
+        x_supersampled = interpolate_x(
             np.arange(0, num_original_points - 1, 1.0 / num_samples)
         )
-        y_supersampled = interp_y(
+        y_supersampled = interpolate_y(
             np.arange(0, num_original_points - 1, 1.0 / num_samples)
         )
-        z_supersampled = interp_z(
+        z_supersampled = interpolate_z(
             np.arange(0, num_original_points - 1, 1.0 / num_samples)
         )
 
@@ -789,35 +783,6 @@ class PrivilegedRoutePlanner:
             carla_map: Carla map instance.
         """
 
-        def point_inside_boundingbox(point, bb_center, bb_extent, multiplier=1.2):
-            """Checks whether or not a point is inside a bounding box."""
-
-            A = carla.Vector2D(
-                bb_center.x - multiplier * bb_extent.x,
-                bb_center.y - multiplier * bb_extent.y,
-            )
-            B = carla.Vector2D(
-                bb_center.x + multiplier * bb_extent.x,
-                bb_center.y - multiplier * bb_extent.y,
-            )
-            D = carla.Vector2D(
-                bb_center.x - multiplier * bb_extent.x,
-                bb_center.y + multiplier * bb_extent.y,
-            )
-            M = carla.Vector2D(point.x, point.y)
-
-            AB = B - A
-            AD = D - A
-            AM = M - A
-            am_ab = AM.x * AB.x + AM.y * AB.y
-            ab_ab = AB.x * AB.x + AB.y * AB.y
-            am_ad = AM.x * AD.x + AM.y * AD.y
-            ad_ad = AD.x * AD.x + AD.y * AD.y
-
-            return (
-                am_ab > 0 and am_ab < ab_ab and am_ad > 0 and am_ad < ad_ad
-            )  # pylint: disable=chained-comparison
-
         def is_actor_affected_by_stop(wp_list, stop_extent, stop_location):
             """
             Check if the given actor is affected by the stop.
@@ -832,7 +797,7 @@ class PrivilegedRoutePlanner:
             # Check if the any of the actor wps is inside the stop's bounding box.
             # Using more than one waypoint removes issues with small trigger volumes and backwards movement
             for actor_wp in wp_list:
-                if point_inside_boundingbox(
+                if is_point_in_bbox(
                     actor_wp.transform.location, stop_location, stop_extent
                 ):
                     return True
@@ -840,11 +805,11 @@ class PrivilegedRoutePlanner:
             return False
 
         def _scan_for_stop_sign(
-            list_stop_signs, list_stop_signs_extent, wp_list, stop_locations
+            stop_sign_list, stop_sign_list_extent, wp_list, stop_locations
         ):
             """Check which stop sign affects the actor."""
             for stop, stop_extent, stop_location in zip(
-                list_stop_signs, list_stop_signs_extent, stop_locations
+                stop_sign_list, stop_sign_list_extent, stop_locations
             ):
                 if is_actor_affected_by_stop(wp_list, stop_extent, stop_location):
                     return stop
@@ -878,23 +843,23 @@ class PrivilegedRoutePlanner:
         self.next_stop_signs = [None] * self.route_points.shape[0]
 
         # Get list of all stop signs
-        list_stop_signs = carla_world.get_actors().filter("*traffic.stop*")
+        stop_sign_list = carla_world.get_actors().filter("*traffic.stop*")
 
         next_stop_signs = None
         distance_idx = np.inf
 
-        if list_stop_signs:
-            list_stop_signs_extent = [x.trigger_volume.extent for x in list_stop_signs]
+        if stop_sign_list:
+            stop_sign_list_extent = [x.trigger_volume.extent for x in stop_sign_list]
 
             # Adjust minimum extent for stop signs. That is necessary, since some stop signs are only 2cm thick
             # and because we use waypoints 50 cm apart it's likely we would miss it
-            for extent in list_stop_signs_extent:
+            for extent in stop_sign_list_extent:
                 extent.x = max(extent.x, 1)
                 extent.y = max(extent.y, 1)
 
             stop_locations = [
                 stop.get_transform().transform(stop.trigger_volume.location)
-                for stop in list_stop_signs
+                for stop in stop_sign_list
             ]
             stop_locations_np = np.array([[x.x, x.y, x.z] for x in stop_locations])
 
@@ -907,8 +872,8 @@ class PrivilegedRoutePlanner:
                     start_loc = carla.Location(x=loc[0], y=loc[1], z=loc[2])
                     check_wps = _get_waypoints(start_loc, carla_map)
                     stop_sign = _scan_for_stop_sign(
-                        list_stop_signs,
-                        list_stop_signs_extent,
+                        stop_sign_list,
+                        stop_sign_list_extent,
                         check_wps,
                         stop_locations,
                     )
@@ -967,37 +932,37 @@ class PrivilegedRoutePlanner:
             else:
                 self.speed_limits[i] = previous_speed_limit
 
-    def compute_leading_vehicles(self, list_vehicles, ego_vehicle_id):
+    def compute_leading_vehicles(self, vehicle_list, ego_id):
         """
         Computes the IDs of vehicles leading ahead of the ego vehicle.
 
         Args:
-            list_vehicles (list): List of all vehicles.
-            ego_vehicle_id (int): ID of the ego vehicle.
+            vehicle_list (list): List of all vehicles.
+            ego_id (int): ID of the ego vehicle.
 
         Returns:
             list: IDs of vehicles leading ahead of the ego vehicle.
         """
         # Get IDs of all vehicles except the ego vehicle
         vehicle_ids = np.array(
-            [vehicle.id for vehicle in list_vehicles if vehicle.id != ego_vehicle_id]
+            [vehicle.id for vehicle in vehicle_list if vehicle.id != ego_id]
         )
 
         # Check if there are vehicles and the route index is not at the end
         if len(vehicle_ids) and self.route_index != self.route_points.shape[0]:
-            max_distance = self.leading_vehicles_maximum_detection_radius
+            max_distance = self.leading_vehicles_max_radius
 
             vehicle_yaws = np.array(
                 [
                     vehicle.get_transform().rotation.yaw
-                    for vehicle in list_vehicles
-                    if vehicle.id != ego_vehicle_id
+                    for vehicle in vehicle_list
+                    if vehicle.id != ego_id
                 ]
             )
             vehicle_locations = [
                 vehicle.get_location()
-                for vehicle in list_vehicles
-                if vehicle.id != ego_vehicle_id
+                for vehicle in vehicle_list
+                if vehicle.id != ego_id
             ]
             vehicle_locations = np.array(
                 [[loc.x, loc.y, loc.z] for loc in vehicle_locations]
@@ -1037,27 +1002,27 @@ class PrivilegedRoutePlanner:
         else:
             return []
 
-    def compute_trailing_vehicles(self, list_vehicles, ego_vehicle_id):
+    def compute_rear_vehicles(self, vehicle_list, ego_id):
         """
-        Computes the IDs of vehicles trailing behind the ego vehicle.
+        Computes the IDs of vehicles rear behind the ego vehicle.
 
         Args:
-            list_vehicles (list): List of all vehicles.
-            ego_vehicle_id (int): ID of the ego vehicle.
+            vehicle_list (list): List of all vehicles.
+            ego_id (int): ID of the ego vehicle.
 
         Returns:
-            list: IDs of vehicles trailing behind the ego vehicle
+            list: IDs of vehicles rear behind the ego vehicle
         """
         # Get IDs of all vehicles except the ego vehicle
         vehicle_ids = np.array(
-            [vehicle.id for vehicle in list_vehicles if vehicle.id != ego_vehicle_id]
+            [vehicle.id for vehicle in vehicle_list if vehicle.id != ego_id]
         )
 
         # Maximum distance of vehicles to ego's route
-        max_distance = self.trailing_vehicles_max_route_distance
+        max_distance = self.rear_vehicles_max_route_distance
 
         # Check if there was a lane change in the past
-        max_distance_lane_change = self.max_distance_lane_change_trailing_vehicles
+        max_distance_lane_change = self.rear_vehicles_max_distance_lane_change
         for i in range(
             max(0, self.route_index - max_distance_lane_change), self.route_index
         ):
@@ -1065,7 +1030,7 @@ class PrivilegedRoutePlanner:
                 RoadOption.CHANGELANELEFT,
                 RoadOption.CHANGELANERIGHT,
             ):
-                max_distance = self.trailing_vehicles_max_route_distance_lane_change
+                max_distance = self.rear_vehicles_max_route_distance_lane_change
                 break
 
         # Check if there are vehicles and the route index is not at the beginning
@@ -1074,25 +1039,23 @@ class PrivilegedRoutePlanner:
             vehicle_yaws = np.array(
                 [
                     vehicle.get_transform().rotation.yaw
-                    for vehicle in list_vehicles
-                    if vehicle.id != ego_vehicle_id
+                    for vehicle in vehicle_list
+                    if vehicle.id != ego_id
                 ]
             )
             vehicle_locations = [
                 vehicle.get_location()
-                for vehicle in list_vehicles
-                if vehicle.id != ego_vehicle_id
+                for vehicle in vehicle_list
+                if vehicle.id != ego_id
             ]
             vehicle_locations = np.array(
                 [[loc.x, loc.y, loc.z] for loc in vehicle_locations]
             )
 
-            max_distance_trailing_vehicles = (
-                self.tailing_vehicles_maximum_detection_radius
-            )
+            max_distance_rear_vehicles = self.rear_vehicles_max_radius
             # Computes if vehicle is behind ego vehicle and its orientation is closer than 30 degrees to the road
-            # Both is necessary to ensure it is trailing the ego vehicle and is not only crossing its previous path
-            from_idx = max(0, self.route_index - max_distance_trailing_vehicles)
+            # Both is necessary to ensure it is rear the ego vehicle and is not only crossing its previous path
+            from_idx = max(0, self.route_index - max_distance_rear_vehicles)
             distances = (
                 vehicle_locations[:, None, :2]
                 - self.route_points[None, from_idx : self.route_index, :2][

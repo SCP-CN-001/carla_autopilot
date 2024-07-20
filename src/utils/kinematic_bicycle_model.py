@@ -17,11 +17,10 @@ class KinematicBicycleModel:
 
     def __init__(self, configs):
         """
-        Kinematic bicycle model describing the motion of a car given its state and action.
-        Tuned parameters are taken from World on Rails.
+        Kinematic bicycle model describing the motion of a car given its state and action. Tuned parameters are taken from World on Rails.
 
         Args:
-            configs (GlobalConfig): Object of the config for hyperparameters.
+            configs: Object of the config for hyperparameters.
         """
 
         self.time_step = configs.time_step
@@ -30,8 +29,8 @@ class KinematicBicycleModel:
         self.steering_gain = configs.steering_gain
         self.brake_acceleration = configs.brake_acceleration
         self.throttle_acceleration = configs.throttle_acceleration
-        self.throttle_values = configs.throttle_values
-        self.brake_values = configs.brake_values
+        self.throttle_values = np.array(configs.throttle_values)
+        self.brake_values = np.array(configs.brake_values)
         self.throttle_threshold_during_forecasting = (
             configs.throttle_threshold_during_forecasting
         )

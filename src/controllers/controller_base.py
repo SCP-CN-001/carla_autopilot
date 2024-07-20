@@ -8,8 +8,8 @@ from abc import ABC
 
 
 class ControllerBase(ABC):
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, configs):
+        self.configs = configs
 
         self.error_history = []
         self.saved_error_history = []
