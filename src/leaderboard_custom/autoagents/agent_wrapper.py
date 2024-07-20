@@ -170,7 +170,7 @@ class AgentWrapper:
         """
         Pass the call directly to the agent
         """
-        return self._agent(self.sensor_list_names)
+        return self._agent()
         # return self._agent()
 
     def _preprocess_sensor_spec(self, sensor_spec):

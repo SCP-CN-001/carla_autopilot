@@ -16,6 +16,7 @@ from leaderboard.envs.sensor_interface import SensorInterface
 from omegaconf import OmegaConf
 from scipy.integrate import RK45
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
+from srunner.scenariomanager.timer import GameTime
 
 from src.common_carla.actor import get_horizontal_distance, get_nearby_objects
 from src.common_carla.bounding_box import check_obb_intersection
@@ -32,6 +33,15 @@ from src.planners.privileged_route_planner import PrivilegedRoutePlanner
 from src.planners.route_planner import RoutePlanner
 from src.utils.geometry import get_angle_by_position, normalize_angle
 from src.utils.kinematic_bicycle_model import KinematicBicycleModel
+
+
+def parse_config(path_config: str):
+    def decode_expression(x):
+        return eval(x)
+
+    OmegaConf.register_new_resolver("eval", decode_expression, use_cache=False)
+    configs = OmegaConf.load(path_config)
+    return configs
 
 
 def get_entry_point():
@@ -53,7 +63,38 @@ class ExpertAgent(AutonomousAgent):
 
         # this data structure will contain all sensor data
         self.sensor_interface = SensorInterface()
+
+        self.wallclock_t0 = None
         logging.info("Expert agent initialized.")
+
+    def __call__(self):
+        """
+        Execute the agent call, e.g. agent()
+        Returns the next vehicle controls
+        """
+        input_data = self.sensor_interface.get_data(GameTime.get_frame())
+
+        timestamp = GameTime.get_time()
+
+        if not self.wallclock_t0:
+            self.wallclock_t0 = GameTime.get_wallclocktime()
+        wallclock = GameTime.get_wallclocktime()
+        wallclock_diff = (wallclock - self.wallclock_t0).total_seconds()
+        sim_ratio = 0 if wallclock_diff == 0 else timestamp / wallclock_diff
+
+        print(
+            "=== [Agent] -- Wallclock = {} -- System time = {} -- Game time = {} -- Ratio = {}x".format(
+                str(wallclock)[:-3],
+                format(wallclock_diff, ".3f"),
+                format(timestamp, ".3f"),
+                format(sim_ratio, ".3f"),
+            )
+        )
+
+        control, _ = self.run_step(input_data)
+        control.manual_gear_shift = False
+
+        return control
 
     def set_global_plan(self, global_plan_gps, global_plan_world_coord):
         """
@@ -70,11 +111,12 @@ class ExpertAgent(AutonomousAgent):
         Args:
             path_to_conf_file (str): The absolute path to the configuration file.
         """
-        configs = OmegaConf.load(path_to_conf_file)
+        configs = parse_config(path_to_conf_file)
 
         self.configs = configs
         self.all_infos = configs.all_infos
         self.save_path = configs.save_path
+        self.step = -1
 
         # Dynamics models
         self.ego_physics_model = KinematicBicycleModel(configs.kinematic_bicycle_model)
@@ -218,7 +260,6 @@ class ExpertAgent(AutonomousAgent):
             If self.all_infos is True, return a tuple containing the control and driving data.
             Otherwise, return only the control (steer, throttle, brake).
         """
-
         self.step += 1
 
         # Get the control commands and driving data for the current step
@@ -301,6 +342,8 @@ class ExpertAgent(AutonomousAgent):
                 distance_next_traffic_light,
                 next_traffic_light,
                 distance_next_stop_sign,
+                next_stop_sign,
+                speed_reduced_by_obj,
             )
 
         target_speed = min(target_speed, target_speed_route_obstacle)
@@ -348,11 +391,11 @@ class ExpertAgent(AutonomousAgent):
         self.target_speed = target_speed
 
         # Update speed histogram if enabled
-        if self.make_histogram:
-            self.speed_histogram.append((self.target_speed * 3.6) if not brake else 0.0)
+        # if self.make_histogram:
+        #     self.speed_histogram.append((self.target_speed * 3.6) if not brake else 0.0)
 
         # Get the target and next target points from the command planner
-        command_route = self._command_planner.run_step(ego_gps)
+        command_route = self.command_planner.run_step(ego_gps)
         if len(command_route) > 2:
             target_point, far_command = command_route[1]
             next_target_point, next_far_command = command_route[2]
@@ -369,7 +412,7 @@ class ExpertAgent(AutonomousAgent):
             self.commands.append(far_command.value)
             self.next_commands.append(next_far_command.value)
 
-        return control
+        return control, {}
 
     def _reset_flags(self):
         self.traffic_light_hazard = False
@@ -794,16 +837,16 @@ class ExpertAgent(AutonomousAgent):
             for i in range(
                 min(
                     route_points.shape[0] - 1,
-                    self.config.draw_future_route_till_distance,
+                    self.configs.distance_draw_future_route,
                 )
             ):
                 location = route_points[i]
                 location = carla.Location(location[0], location[1], location[2] + 0.1)
-                self._world.debug.draw_point(
+                self.world.debug.draw_point(
                     location=location,
                     size=0.05,
-                    color=carla.Color(*self.configs.color.future_route),
-                    life_time=self.config.draw_life_time,
+                    color=self.configs.color.future_route,
+                    life_time=self.configs.draw_life_time,
                 )
 
         return target_speed, keep_driving, speed_reduced_by_obj
@@ -832,7 +875,7 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The target speed for the ego vehicle.
         """
-        a = self.configs.idm.maximum_acceleration  # Maximum acceleration [m/s²]
+        a = self.configs.idm.max_acceleration  # Maximum acceleration [m/s²]
         b = (
             self.configs.idm.comfortable_braking_deceleration_high_speed
             if ego_speed > self.configs.idm.comfortable_braking_threshold_speed
@@ -959,7 +1002,7 @@ class ExpertAgent(AutonomousAgent):
                             box=bbox,
                             rotation=bbox.rotation,
                             thickness=0.5,
-                            color=carla.Color(*self.configs.color.bbox_leading_vehicle),
+                            color=self.configs.color.bbox_leading_vehicle,
                             life_time=self.configs.draw_life_time,
                         )
 
@@ -994,8 +1037,8 @@ class ExpertAgent(AutonomousAgent):
         target_speed_walker = target_speed
         target_speed_vehicle = target_speed
         ego_location = self.ego_vehicle.get_location()
-        normal_color = carla.Color(*self.configs.color.bbox_forecasted_normal)
-        hazard_color = carla.Color(*self.configs.color.bbox_forecasted_hazard)
+        normal_color = self.configs.color.bbox_forecasted_normal
+        hazard_color = self.configs.color.bbox_forecasted_hazard
         color = normal_color
 
         # Iterate over the ego vehicle's bounding boxes and predicted bounding boxes of other actors
@@ -1074,7 +1117,7 @@ class ExpertAgent(AutonomousAgent):
 
             # Iterate over nearby walkers and check for intersections with the ego bounding box
             for walker_bbox, walker_id in zip(nearby_walkers, nearby_walkers_ids):
-                if self.check_obb_intersection(ego_bbox, walker_bbox[i]):
+                if check_obb_intersection(ego_bbox, walker_bbox[i]):
                     color = hazard_color
                     ego_speed = self.ego_vehicle.get_velocity().length()
                     blocking_actor = self.world.get_actor(walker_id)
@@ -1236,7 +1279,7 @@ class ExpertAgent(AutonomousAgent):
         ego_location = self.ego_vehicle.get_location()
         ego_speed = self.ego_vehicle.get_velocity().length()
         stop_signs = get_nearby_objects(
-            ego_location,
+            self.ego_vehicle,
             actor_list.filter("*traffic.stop*"),
             self.configs.stop_sign_radius,
         )
@@ -1321,6 +1364,7 @@ class ExpertAgent(AutonomousAgent):
         next_traffic_light,
         distance_next_stop_sign,
         next_stop_sign,
+        speed_reduced_by_obj,
     ):
         """Compute the brake command and target speed for the ego vehicle based on various factors.
 
@@ -1329,6 +1373,11 @@ class ExpertAgent(AutonomousAgent):
             actor_list (list): A list of all actors (vehicles, walkers, etc.) in the simulation.
             vehicle_list (list): A list of vehicle actors in the simulation.
             route_points (numpy.ndarray): An array of waypoints representing the planned route.
+            distance_to_next_traffic_light (float): The distance to the next traffic light.
+            next_traffic_light (carla.TrafficLight): The next traffic light actor.
+            distance_to_next_stop_sign (float): The distance to the next stop sign.
+            next_stop_sign (carla.StopSign): The next stop sign actor.
+            speed_reduced_by_obj (list or None): A list containing [reduced speed, object type, object ID, distance] for the object that caused the most speed reduction, or None if no speed reduction.
         """
         initial_target_speed = target_speed
         ego_transform = self.ego_vehicle.get_transform()
@@ -1347,7 +1396,7 @@ class ExpertAgent(AutonomousAgent):
                 box=ego_bbox_global,
                 rotation=ego_bbox_global.rotation,
                 thickness=0.1,
-                color=carla.Color(*self.configs.color.bbox_ego_vehicle),
+                color=self.configs.color.bbox_ego_vehicle,
                 life_time=self.configs.draw_life_time,
             )
 
@@ -1377,10 +1426,9 @@ class ExpertAgent(AutonomousAgent):
         )
 
         # Get future bounding boxes of walkers
-        if not self.all_infos:
-            nearby_walkers, nearby_walker_ids = self.forecast_walkers(
-                actor_list, num_future_frames
-            )
+        nearby_walkers, nearby_walker_ids = self.forecast_walkers(
+            actor_list, num_future_frames
+        )
 
         # Forecast the ego vehicle's bounding boxes for the future frames
         ego_bbox = self.forecast_ego_agent(
@@ -1839,7 +1887,7 @@ class ExpertAgent(AutonomousAgent):
             ]
         )
         walker_speeds = np.array([walker.get_velocity().length() for walker in walkers])
-        walker_speeds = np.maximum(walker_speeds, self.configs.min_walker_speed)
+        walker_speeds = np.maximum(walker_speeds, self.configs.min_speed_walker)
         walker_directions = np.array(
             [
                 [
@@ -1857,23 +1905,23 @@ class ExpertAgent(AutonomousAgent):
             + np.arange(1, num_future_frames + 1)[None, :, None]
             * walker_directions[:, None, :]
             * walker_speeds[:, None, None]
-            / self.configs.bicycle_frame_rate
+            / self.configs.frame_rate_bicycle
         )
 
         # Iterate over walkers and calculate their future bounding boxes
         for i, walker in enumerate(walkers):
-            bb, transform = walker.bounding_box, walker.get_transform()
+            bbox, transform = walker.bounding_box, walker.get_transform()
             rotation = carla.Rotation(
-                pitch=bb.rotation.pitch + transform.rotation.pitch,
-                yaw=bb.rotation.yaw + transform.rotation.yaw,
-                roll=bb.rotation.roll + transform.rotation.roll,
+                pitch=bbox.rotation.pitch + transform.rotation.pitch,
+                yaw=bbox.rotation.yaw + transform.rotation.yaw,
+                roll=bbox.rotation.roll + transform.rotation.roll,
             )
-            extent = bb.extent
+            extent = bbox.extent
             extent.x = max(
-                self.configs.walker_minimum_extent, extent.x
+                self.configs.min_extent_walker, extent.x
             )  # Ensure a minimum width
             extent.y = max(
-                self.configs.walker_minimum_extent, extent.y
+                self.configs.min_extent_walker, extent.y
             )  # Ensure a minimum length
 
             walker_future_bboxes = []
@@ -1899,7 +1947,7 @@ class ExpertAgent(AutonomousAgent):
                         box=bbox,
                         rotation=bbox.rotation,
                         thickness=0.1,
-                        color=carla.Color(*self.configs.color.bbox_forecasted_walker),
+                        color=self.configs.color.bbox_forecasted_walker,
                         life_time=self.configs.draw_life_time,
                     )
 

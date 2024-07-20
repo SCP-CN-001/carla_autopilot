@@ -23,7 +23,7 @@ from argparse import RawTextHelpFormatter
 from datetime import datetime
 from distutils.version import LooseVersion
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 import carla
 import numpy as np

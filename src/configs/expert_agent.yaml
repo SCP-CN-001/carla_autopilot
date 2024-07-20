@@ -7,40 +7,51 @@ track: none
 save_path: none
 all_infos: true
 frame_rate_carla: 20.0
-time_step_carla: 1.0 / ${frame_rate_carla}
+time_step_carla: ${eval:"1.0/${frame_rate_carla}"}
+# Maximum number of ticks the agent doesn't take any action. The maximum is 169 and it's speed must be >0.1.
+# After taking 170 ticks no action the route ends with an AgentBlockTest infraction.
+max_blocked_ticks: 170
+
+# Points sampled per meter when interpolating route.
+points_per_meter: 10
 
 # Time in seconds to draw the things during debugging.
 draw_life_time: 0.051
+# Draw x meters of the route during debugging
+distance_draw_future_route: ${eval:"50*${points_per_meter}"}
+# Color of the objects in the debug visualization
 color:
-  bbox_ego_vehicle: (0, 0, 0, 1)
-  bbox_leading_vehicle: (1, 0, 0, 0)
-  bbox_forecasted_normal: (0, 1, 0, 0)
-  bbox_forecasted_hazard: (1, 0, 0, 0)
-  bbox_forecasted_other_vehicle: (0, 0, 1, 1)
-  bbox_forecasted_walker: (0, 0, 1, 1)
-  future_route: (0, 1, 0)
+  bbox_ego_vehicle: ${eval:"carla.Color(0, 0, 0, 1)"}
+  bbox_leading_vehicle: ${eval:"carla.Color(1, 0, 0, 0)"}
+  bbox_forecasted_normal: ${eval:"carla.Color(0, 1, 0, 0)"}
+  bbox_forecasted_hazard: ${eval:"carla.Color(1, 0, 0, 0)"}
+  bbox_forecasted_other_vehicle: ${eval:"carla.Color(0, 0, 1, 1)"}
+  bbox_forecasted_walker: ${eval:"carla.Color(0, 0, 1, 1)"}
+  future_route: ${eval:"carla.Color(0, 1, 0)"}
 
 # -------------------------------------------------------------
 # Expert agent
 # -------------------------------------------------------------
-# Points sampled per meter when interpolating route.
-points_per_meter: 10
+steer_noise: 1e-3  # Noise added to expert steering angle
 # Minimum number of points to look ahead when checking for lane change.
-min_lookahead_near_lane_change: 20 * ${points_per_meter}
+min_lookahead_near_lane_change: ${eval:"20*${points_per_meter}"}
 # Minimum number of previous points to consider when checking for lane change.
-min_previous_near_lane_change: 15 * ${points_per_meter}
+min_previous_near_lane_change: ${eval:"15*${points_per_meter}"}
 # Lookahead distance to check, whether the ego is close to a junction
-max_lookahead_near_junction: 30 * ${points_per_meter}
+max_lookahead_near_junction: ${eval:"30*${points_per_meter}"}
 
+target_speed_fast: 8.0 # Speed outside junctions, m/s
 # Ratio between the the speed limit / curvature dependent speed limit and the target speed.
 # By default the other vehicles drive with 70 % of the speed limit. To avoid collisions we have to be a bit faster.
 factor_target_speed_limit: 0.72
 # Maximum seed in junctions in m/s
-max_speed_junction: 64.0 / 3.6
+max_speed_junction: ${eval:"64.0/3.6"}
+# Minimum walker speed in m/s
+min_speed_walker: 0.5
 # Default overtaking speed in m/s for all route obstacle scenarios
-speed_overtake: 50.0 / 3.6
+speed_overtake: ${eval:"50.0/3.6"}
 # Overtaking speed in m/s for vehicle opens door two ways scenarios
-speed_overtake_vehicle_opens_door_two_ways: 40.0 / 3.6
+speed_overtake_vehicle_opens_door_two_ways: ${eval:"40.0/3.6"}
 
 # Distance of obstacles (in meters) in which we will check for collisions
 detection_radius: 50.0
@@ -56,7 +67,7 @@ distance_stop_sign_unclear: 10.0
 # Distance to the stop sign, when the previous stop sign is cleared
 distance_stop_sign_clear: 3.0
 # Distance of the first checkpoint, use the same value as in Transfuser++
-distance_first_checkpoint: 2.5 * ${points_per_meter}
+distance_first_checkpoint: ${eval:"2.5*${points_per_meter}"}
 # Distance to check for road_id/lane_id for RouteObstacle scenarios
 distance_retrieve_id: 100
 # Minimum distance to process the route obstacle scenarios
@@ -66,37 +77,37 @@ distance_process_hazard_side_lane: 25
 # Minimum distance to process HazardAtSideLaneTwoWays
 distance_process_hazard_side_lane_two_ways: 10
 # Distance in meters at which two ways scenarios are considered finished
-distance_delete_scenario_in_two_ways: 2 * ${points_per_meter}
+distance_delete_scenario_in_two_ways: ${eval:"2*${points_per_meter}"}
 # Distance over which lane shift transition is smoothed  in meters.
-distance_smooth_transition: 8 * ${points_per_meter}
+distance_smooth_transition: ${eval:"8*${points_per_meter}"}
 # Maximum distance to start the overtaking maneuver
-distance_overtake_two_way_scenario: 8 * ${points_per_meter}
+distance_overtake_two_way_scenario: ${eval:"8*${points_per_meter}"}
 # Transition distance for change lane in scenario ConstructionObstacle
-distance_smooth_transition_construction_obstacle: 10.5 * ${points_per_meter}
+distance_smooth_transition_construction_obstacle: ${eval:"10.5*${points_per_meter}"}
 # Transition distance for change lane in scenario ConstructionObstacleTwoWays
-distance_smooth_transition_construction_obstacle_two_ways: 4 * ${points_per_meter}
+distance_smooth_transition_construction_obstacle_two_ways: ${eval:"4*${points_per_meter}"}
 # Transition distance for change lane in scenario ParkedObstacleTwoWays
-distance_smooth_transition_parked_obstacle_two_ways: 4 * ${points_per_meter}
+distance_smooth_transition_parked_obstacle_two_ways: ${eval:"4*${points_per_meter}"}
 # Transition distance for change lane in scenario VehicleOpensDoorTwoWays
-distance_smooth_transition_vehicle_opens_door_two_ways: 4 * ${points_per_meter}
+distance_smooth_transition_vehicle_opens_door_two_ways: ${eval:"4*${points_per_meter}"}
 # Transition distance for change lane in scenario AccidentTwoWays
-distance_smooth_transition_accident_two_ways: 4 * ${points_per_meter}
+distance_smooth_transition_accident_two_ways: ${eval:"4*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario AccidentTwoWays before the obstacle
-distance_before_accident_two_ways: -1.5 * ${points_per_meter}
+distance_before_accident_two_ways: ${eval:"-1.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario ConstructionObstacle before the obstacle
-distance_before_construction_obstacle_two_ways: 1.5 * ${points_per_meter}
+distance_before_construction_obstacle_two_ways: ${eval:"1.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario ParkedObstacleTwoWays before the obstacle
-distance_before_parked_obstacle_two_ways: -0.5 * ${points_per_meter}
+distance_before_parked_obstacle_two_ways: ${eval:"-0.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario VehicleOpensDoorTwoWays before the obstacle
-distance_before_vehicle_opens_door_two_ways: -2.0 * ${points_per_meter}
+distance_before_vehicle_opens_door_two_ways: ${eval:"-2.0*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario AccidentTwoWays after the obstacle
-distance_after_accident_two_ways: -1.5 * ${points_per_meter}
+distance_after_accident_two_ways: ${eval:"-1.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario ConstructionObstacleTwoWays after the obstacle
-distance_after_construction_obstacle_two_ways: 1.5 * ${points_per_meter}
+distance_after_construction_obstacle_two_ways: ${eval:"1.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario ParkedObstacleTwoWays after the obstacle
-distance_after_parked_obstacle_two_ways: -0.5 * ${points_per_meter}
+distance_after_parked_obstacle_two_ways: ${eval:"-0.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario VehicleOpensDoorTwoWays after the obstacle
-distance_after_vehicle_opens_door_two_ways: -2.0 * ${points_per_meter}
+distance_after_vehicle_opens_door_two_ways: ${eval:"2.0*${points_per_meter}"}
 
 # Safety distance during checking if the path is free for RouteObstacle scenarios
 safety_distance_check_path_free: 10
@@ -126,6 +137,8 @@ speed_threshold_ego: 5.0
 # Speed threshold to select which factor is used during other vehicle bounding boxes forecasting
 speed_threshold_other_vehicle: 1.0
 
+# Minimum extent for pedestrian during bbs forecasting
+min_extent_walker: 1.5
 # Minimum extent factor to scale bounding boxes while forecasting other vehicles in x direction
 min_extent_factor_x_other_vehicle: 1.2
 # Minimum extent factor to scale bounding boxes while forecasting other vehicles in y direction
@@ -184,7 +197,7 @@ idm:
 # -------------------------------------------------------------
 #  Time step for the model (20 frames per second).
 kinematic_bicycle_model:
-  time_step: 1.0 / 20.0
+  time_step: 0.05
   # Kinematic bicycle model parameters tuned from World on Rails.
   # Distance from the rear axle to the front axle of the vehicle.
   front_wheel_base: -0.090769015
@@ -215,9 +228,9 @@ kinematic_bicycle_model:
 # -------------------------------------------------------------
 
 lane_shift:
-  extension_length_for_yield_to_emergency_vehicle: 20 * ${points_per_meter}
-  start_distance_invading_turn: 20 * ${points_per_meter}
-  end_distance_invading_turn: 8 * ${points_per_meter}
+  extension_length_for_yield_to_emergency_vehicle: ${eval:"20*${points_per_meter}"}
+  start_distance_invading_turn: ${eval:"20*${points_per_meter}"}
+  end_distance_invading_turn: ${eval:"8*${points_per_meter}"}
 
 # -------------------------------------------------------------
 # Longitudinal PID Controller
@@ -270,50 +283,50 @@ lateral_pid_controller:
   # The offset used in the calculation of the lookahead distance based on the current speed.
   speed_offset: 1.9152884533402488
   # The default lookahead distance for the lateral PID controller.
-  default_lookahead: 2.4 * ${points_per_meter}
+  default_lookahead: ${eval:"2.4*${points_per_meter}"}
   # The speed threshold (in km/h) for switching between the default and variable lookahead distance.
-  speed_threshold: 2.3150102938235136 * ${points_per_meter}
+  speed_threshold: ${eval:"2.3150102938235136*${points_per_meter}"}
   # The size of the sliding window used to store the error history for the lateral PID controller.
   window_size: 6
   # The minimum allowed lookahead distance for the lateral PID controller.
-  min_lookahead_distance: 2.4 * ${points_per_meter}
+  min_lookahead_distance: ${eval:"2.4*${points_per_meter}"}
   # The maximum allowed lookahead distance for the lateral PID controller.
-  max_lookahead_distance: 10.5 * points_per_meter
+  max_lookahead_distance: ${eval:"10.5*${points_per_meter}"}
 
 # -------------------------------------------------------------
 # Privileged Route Planner
 # -------------------------------------------------------------
 privileged_route_planner:
-  points_per_meter: ${points_per_meter}
+  points_per_meter: ${eval:"${points_per_meter}"}
   # Max distance to search ahead for updating ego route index  in meters.
-  search_distance_route_point: 4 * ${points_per_meter}
+  search_distance_route_point: ${eval:"4*${points_per_meter}"}
   # Distance over which lane shift transition is smoothed  in meters.
-  transition_smoothness_distance: 8 * ${points_per_meter}
+  transition_smoothness_distance: ${eval:"8*${points_per_meter}"}
   # Length to extend lane shift transition for YieldToEmergencyVehicle  in meters.
-  lane_shift_extension_length_for_yield_to_emergency_vehicle: 20 * ${points_per_meter}
+  lane_shift_extension_length_for_yield_to_emergency_vehicle: ${eval:"20*${points_per_meter}"}
   # Distance over which lane shift transition is smoothed for InvadingTurn in meters.
-  lane_shift_start_distance_invading_turn: 15 * ${points_per_meter}
-  lane_shift_end_distance_invading_turn: 10 * ${points_per_meter}
+  lane_shift_start_distance_invading_turn: ${eval:"15*${points_per_meter}"}
+  lane_shift_end_distance_invading_turn: ${eval:"10*${points_per_meter}"}
   # Margin from fence when shifting route in InvadingTurn.
   fence_avoidance_margin_invading_turn: 0.3
   # Minimum lane width to avoid early lane changes.
   minimum_lane_width_threshold: 2.5
   # Spacing for checking and updating speed limits  in meters.
-  speed_limit_waypoints_spacing_check: 5 * ${points_per_meter}
+  speed_limit_waypoints_spacing_check: ${eval:"5*${points_per_meter}"}
   # Max distance on route for detecting leading vehicles.
   leading_vehicles_max_route_distance: 2.5
   # Max angle difference for detecting leading vehicles  in meters.
   leading_vehicles_max_route_angle_distance: 35.0
   # Max radius for detecting any leading vehicles in meters.
-  leading_vehicles_max_radius: 80 * ${points_per_meter}
+  leading_vehicles_max_radius: ${eval:"80*${points_per_meter}"}
   # Max distance on route for detecting rear vehicles.
   rear_vehicles_max_route_distance: 3.0
   # Max route distance for rear vehicles after lane change.
   rear_vehicles_max_route_distance_lane_change: 6.0
   # Max radius for detecting any rear vehicles in meters.
-  rear_vehicles_max_radius: 80 * ${points_per_meter}
+  rear_vehicles_max_radius: ${eval:"80*${points_per_meter}"}
   # Max distance to check for lane changes when detecting rear vehicles in meters.
-  rear_vehicles_max_distance_lane_change: 15 * ${points_per_meter}
+  rear_vehicles_max_distance_lane_change: ${eval:"15*${points_per_meter}"}
   # Distance to extend the end of the route in meters. This makes sure we always have checkpoints,
   # also at the end of the route.
   extra_route_length: 50

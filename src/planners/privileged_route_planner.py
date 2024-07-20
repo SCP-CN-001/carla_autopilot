@@ -903,7 +903,7 @@ class PrivilegedRoutePlanner:
         map_name = carla_map.name.split("/")[-1]
 
         # Load speed limit data from file
-        file_name_speed_limits = f"../data/speed_limits/{map_name}_speed_limits.npy"
+        file_name_speed_limits = f"../configs/speed_limits/{map_name}_speed_limits.npy"
         dir_file = os.path.dirname(os.path.abspath(__file__))
         file_name_speed_limits = os.path.join(dir_file, file_name_speed_limits)
         file_content = np.load(file_name_speed_limits, allow_pickle=True)
