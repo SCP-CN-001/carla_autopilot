@@ -13,4 +13,4 @@ simple-watchdog-timer==0.1.1
 six==1.16.0
 tabulate==0.9.0
 torch==2.3.1
-transform3d==0.4.2
+transforms3d==0.4.2
