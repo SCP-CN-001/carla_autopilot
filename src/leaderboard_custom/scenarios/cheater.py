@@ -18,6 +18,8 @@ class Cheater:
     def update(scenario_type, scenario_instance):
         """Detect and mark specific scenarios for the expert agent."""
 
+        print(scenario_type)
+
         if scenario_type in ["ConstructionObstacle", "ConstructionObstacleTwoWays"]:
             traffic_warning = scenario_instance.other_actors[1]
             last_cone = scenario_instance.other_actors[-2]

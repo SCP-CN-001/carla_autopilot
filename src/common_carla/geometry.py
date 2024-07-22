@@ -15,9 +15,9 @@ def dot_product(vector1, vector2, vector_class=carla.Vector3D):
             float: The dot product of the two vectors.
     """
     if vector_class == carla.Vector3D:
-        return vector1.x * vector2.x + vector2.x * vector2.y + vector1.z * vector2.z
+        return vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z
     elif vector_class == carla.Vector2D:
-        return vector1.x * vector2.x + vector2.x * vector2.y
+        return vector1.x * vector2.x + vector1.y * vector2.y
 
     raise NotImplementedError("Only support carla.Vector3D and carla.Vector2D.")
 

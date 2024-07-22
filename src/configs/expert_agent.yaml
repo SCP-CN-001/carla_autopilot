@@ -5,7 +5,6 @@
 visualize: false
 track: none
 save_path: none
-all_infos: true
 frame_rate_carla: 20.0
 time_step_carla: ${eval:"1.0/${frame_rate_carla}"}
 # Maximum number of ticks the agent doesn't take any action. The maximum is 169 and it's speed must be >0.1.
@@ -23,6 +22,7 @@ distance_draw_future_route: ${eval:"50*${points_per_meter}"}
 color:
   bbox_ego_vehicle: ${eval:"carla.Color(0, 0, 0, 1)"}
   bbox_leading_vehicle: ${eval:"carla.Color(1, 0, 0, 0)"}
+  bbox_rear_vehicle: ${eval:"carla.Color(1, 1, 1, 0)"}
   bbox_forecasted_normal: ${eval:"carla.Color(0, 1, 0, 0)"}
   bbox_forecasted_hazard: ${eval:"carla.Color(1, 0, 0, 0)"}
   bbox_forecasted_other_vehicle: ${eval:"carla.Color(0, 0, 1, 1)"}
