@@ -805,11 +805,11 @@ class PrivilegedRoutePlanner:
             return False
 
         def _scan_for_stop_sign(
-            stop_sign_list, stop_sign_list_extent, wp_list, stop_locations
+            stop_sign_list, stop_sign_extent_list, wp_list, stop_locations
         ):
             """Check which stop sign affects the actor."""
             for stop, stop_extent, stop_location in zip(
-                stop_sign_list, stop_sign_list_extent, stop_locations
+                stop_sign_list, stop_sign_extent_list, stop_locations
             ):
                 if is_actor_affected_by_stop(wp_list, stop_extent, stop_location):
                     return stop
@@ -849,11 +849,11 @@ class PrivilegedRoutePlanner:
         distance_idx = np.inf
 
         if stop_sign_list:
-            stop_sign_list_extent = [x.trigger_volume.extent for x in stop_sign_list]
+            stop_sign_extent_list = [x.trigger_volume.extent for x in stop_sign_list]
 
             # Adjust minimum extent for stop signs. That is necessary, since some stop signs are only 2cm thick
             # and because we use waypoints 50 cm apart it's likely we would miss it
-            for extent in stop_sign_list_extent:
+            for extent in stop_sign_extent_list:
                 extent.x = max(extent.x, 1)
                 extent.y = max(extent.y, 1)
 
@@ -873,7 +873,7 @@ class PrivilegedRoutePlanner:
                     check_wps = _get_waypoints(start_loc, carla_map)
                     stop_sign = _scan_for_stop_sign(
                         stop_sign_list,
-                        stop_sign_list_extent,
+                        stop_sign_extent_list,
                         check_wps,
                         stop_locations,
                     )

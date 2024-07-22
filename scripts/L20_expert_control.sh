@@ -12,6 +12,8 @@ export PYTHONPATH=$PYTHONPATH:${LEADERBOARD_ROOT}
 export PYTHONPATH=$PYTHONPATH:${SCENARIO_RUNNER_ROOT}
 export PYTHONPATH=$PYTHONPATH:${AUTOPILOT_ROOT}
 
+export PYTHONPATH=$PYTHONPATH:/home/rowena/Documents/RAMBLE/carla_autopilot
+
 # general parameters
 export PORT=2000
 export TM_PORT=2500
@@ -19,7 +21,7 @@ export DEBUG_CHALLENGE=1
 
 # simulation setup
 export ROUTES=${WORKSPACE}/leaderboard_20/leaderboard/data/routes_training.xml
-export ROUTES_SUBSET=3
+export ROUTES_SUBSET=2
 export REPETITIONS=1
 
 export CHALLENGE_TRACK_CODENAME=MAP

@@ -5,10 +5,8 @@
 # @Author: Yueyuan Li, PDM-Lite
 
 
-import cProfile
 import logging
 import math
-import pstats
 from collections import deque
 
 import carla
@@ -282,8 +280,6 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             tuple: A tuple containing the control commands (steer, throttle, brake) and the driving data.
         """
-        profiler = cProfile.Profile()
-        profiler.enable()
         ego_gps, ego_speed, ego_compass = self.get_ego_state(input_data)
 
         # Waypoint planning and route generation
@@ -416,9 +412,6 @@ class ExpertAgent(AutonomousAgent):
             self.commands.append(far_command.value)
             self.next_commands.append(next_far_command.value)
 
-        profiler.disable()
-        stats = pstats.Stats(profiler).sort_stats("cumulative")
-        stats.print_stats()
         return control, {}
 
     def _reset_flags(self):
@@ -721,6 +714,7 @@ class ExpertAgent(AutonomousAgent):
                         self.waypoint_planner.shift_route_smoothly(
                             from_index, to_index, True, transition_length
                         )
+
                         changed_route = True
                         scenario_data[2] = changed_route
                         scenario_data[3] = from_index
@@ -1699,8 +1693,7 @@ class ExpertAgent(AutonomousAgent):
                         # Otherwise we would increase the extent of the bounding box of the vehicle
                         extent = carla.Vector3D(x=extent.x, y=extent.y, z=extent.z)
 
-                        # Adjust the bounding box size based on velocity and lane change maneuver to adjust for
-                        # uncertainty during forecasting
+                        # Adjust the bounding box size based on velocity and lane change maneuver to adjust for uncertainty during forecasting
                         s = (
                             self.configs.min_extent_factor_x_other_vehicle_lane_change
                             if near_lane_change
