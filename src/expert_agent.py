@@ -5,8 +5,10 @@
 # @Author: Yueyuan Li, PDM-Lite
 
 
+import cProfile
 import logging
 import math
+import pstats
 from collections import deque
 
 import carla
@@ -280,6 +282,8 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             tuple: A tuple containing the control commands (steer, throttle, brake) and the driving data.
         """
+        profiler = cProfile.Profile()
+        profiler.enable()
         ego_gps, ego_speed, ego_compass = self.get_ego_state(input_data)
 
         # Waypoint planning and route generation
@@ -369,7 +373,7 @@ class ExpertAgent(AutonomousAgent):
         # Apply brake if the vehicle is stopped to prevent rolling back
         if (
             control.throttle == 0
-            and ego_speed < self.configs.minimum_speed_to_prevent_rolling_back
+            and ego_speed < self.configs.min_speed_prevent_rolling_back
         ):
             control.brake = 1
 
@@ -412,6 +416,9 @@ class ExpertAgent(AutonomousAgent):
             self.commands.append(far_command.value)
             self.next_commands.append(next_far_command.value)
 
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats("cumulative")
+        stats.print_stats()
         return control, {}
 
     def _reset_flags(self):

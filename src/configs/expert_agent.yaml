@@ -136,6 +136,8 @@ extent_factor_y_ego_low_speed: 1.0
 speed_threshold_ego: 5.0
 # Speed threshold to select which factor is used during other vehicle bounding boxes forecasting
 speed_threshold_other_vehicle: 1.0
+# Minimum speed in m/s to prevent rolling back, when braking no throttle is applied
+min_speed_prevent_rolling_back: 0.5
 
 # Minimum extent for pedestrian during bbs forecasting
 min_extent_walker: 1.5

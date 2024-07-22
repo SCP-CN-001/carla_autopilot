@@ -30,7 +30,9 @@ ln -s CARLA_Leaderboard_20/CARLA_Leaderboard_20 ./
 ### Setup Python Environment
 
 ```shell
-# TODO: add python environment setup
+conda create -n autopilot python=3.8
+conda activate autopilot
+pip install -r requirements.txt
 ```
 
 ### Run Expert Agent
