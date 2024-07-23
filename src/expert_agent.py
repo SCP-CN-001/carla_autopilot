@@ -104,7 +104,7 @@ class ExpertAgent(AutonomousAgent):
         super().set_global_plan(global_plan_gps, global_plan_world_coord)
         self.origin_global_plan_gps = global_plan_gps
         self.origin_global_plan_world_coord = global_plan_world_coord
-        
+
         logging.info(f"Sparse waypoints: {len(self._global_plan)}")
         logging.info(f"Dense waypoints: {len(self.origin_global_plan_gps)}")
 
@@ -930,6 +930,7 @@ class ExpertAgent(AutonomousAgent):
 
     def _get_speed_wrt_leading_vehicle(
         self,
+        ego_location,
         target_speed,
         predicted_bboxes,
         near_lane_change,
@@ -940,6 +941,7 @@ class ExpertAgent(AutonomousAgent):
         """Compute the target speed for the ego vehicle considering the leading vehicle.
 
         Args:
+            ego_location (carla.Location): The location of the ego vehicle.
             target_speed (float): The initial target speed for the ego vehicle.
             predicted_bboxes (dict): A dictionary mapping actor IDs to lists of predicted bounding boxes.
             near_lane_change (bool): Whether the ego vehicle is near a lane change maneuver.
@@ -951,7 +953,6 @@ class ExpertAgent(AutonomousAgent):
             float: The target speed for the ego vehicle considering the leading vehicle.
         """
         target_speed_wrt_leading_vehicle = target_speed
-        ego_location = self.ego_vehicle.get_location()
 
         for vehicle_id, _ in predicted_bboxes.items():
             if vehicle_id in leading_vehicle_ids and not near_lane_change:
@@ -1181,6 +1182,8 @@ class ExpertAgent(AutonomousAgent):
 
     def _get_speed_affected_by_traffic_light(
         self,
+        ego_location,
+        ego_speed,
         target_speed,
         distance_next_traffic_light,
         next_traffic_light,
@@ -1188,6 +1191,8 @@ class ExpertAgent(AutonomousAgent):
         """Handles the behavior of the ego vehicle when approaching a traffic light.
 
         Args:
+            ego_location (carla.Location): The location of the ego vehicle.
+            ego_speed (float): The current speed of the ego vehicle.
             target_speed (float): The current target speed of the ego vehicle.
             distance_next_traffic_light (float): The distance from the ego vehicle to the next traffic light.
             next_traffic_light (carla.TrafficLight or None): The next traffic light in the route.
@@ -1195,9 +1200,6 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The adjusted target speed for the ego vehicle.
         """
-        ego_location = self.ego_vehicle.get_location()
-        ego_speed = self.ego_vehicle.get_velocity().length()
-
         for light, center, waypoints in self.traffic_light_list:
             center_loc = carla.Location(center)
             if center_loc.distance(ego_location) > self.configs.light_radius:
@@ -1272,11 +1274,13 @@ class ExpertAgent(AutonomousAgent):
         return target_speed
 
     def _get_speed_affected_by_stop_sign(
-        self, target_speed, next_stop_sign, actor_list
+        self, ego_location, ego_speed, target_speed, next_stop_sign, actor_list
     ):
         """Handles the behavior of the ego vehicle when approaching a stop sign.
 
         Args:
+            ego_location (carla.Location): The location of the ego vehicle.
+            ego_speed (float): The current speed of the ego vehicle.
             target_speed (float): The current target speed of the ego vehicle.
             next_stop_sign (carla.TrafficSign or None): The next stop sign in the route.
             actor_list (list): A list of all actors (vehicles, walkers, etc.) in the simulation.
@@ -1284,8 +1288,6 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The adjusted target speed for the ego vehicle.
         """
-        ego_location = self.ego_vehicle.get_location()
-        ego_speed = self.ego_vehicle.get_velocity().length()
         stop_signs = get_nearby_objects(
             self.ego_vehicle,
             actor_list.filter("*traffic.stop*"),
@@ -1387,7 +1389,9 @@ class ExpertAgent(AutonomousAgent):
             speed_reduced_by_obj (list or None): A list containing [reduced speed, object type, object ID, distance] for the object that caused the most speed reduction, or None if no speed reduction.
         """
         initial_target_speed = target_speed
+        ego_location = self.ego_vehicle.get_location()
         ego_transform = self.ego_vehicle.get_transform()
+        ego_speed = self.ego_vehicle.get_velocity().length()
 
         # Calculate the global bounding box of the ego vehicle
         center_ego_bbox_global = ego_transform.transform(
@@ -1434,12 +1438,16 @@ class ExpertAgent(AutonomousAgent):
 
         # Get future bounding boxes of walkers
         nearby_walkers, nearby_walker_ids = self.forecast_walkers(
-            actor_list, num_future_frames
+            ego_location, actor_list, num_future_frames
         )
 
         # Forecast the ego vehicle's bounding boxes for the future frames
         ego_bbox = self.forecast_ego_agent(
-            initial_target_speed, num_future_frames, route_points
+            ego_transform,
+            ego_speed,
+            initial_target_speed,
+            num_future_frames,
+            route_points,
         )
 
         # Forecast the ego vehicle's bounding boxes for the future frames
@@ -1460,6 +1468,7 @@ class ExpertAgent(AutonomousAgent):
             target_speed_leading,
             speed_reduced_by_obj,
         ) = self._get_speed_wrt_leading_vehicle(
+            ego_location,
             initial_target_speed,
             predicted_bboxes,
             near_lane_change,
@@ -1488,7 +1497,11 @@ class ExpertAgent(AutonomousAgent):
 
         # Compute the target speed with respect to the red light
         target_speed_traffic_light = self._get_speed_affected_by_traffic_light(
-            initial_target_speed, distance_next_traffic_light, next_traffic_light
+            ego_location,
+            ego_speed,
+            initial_target_speed,
+            distance_next_traffic_light,
+            next_traffic_light,
         )
 
         # Update the object causing the most speed reduction
@@ -1505,7 +1518,7 @@ class ExpertAgent(AutonomousAgent):
 
         # Compute the target speed with respect to the stop sign
         target_speed_stop_sign = self._get_speed_affected_by_stop_sign(
-            initial_target_speed, next_stop_sign, actor_list
+            ego_location, ego_speed, initial_target_speed, next_stop_sign, actor_list
         )
 
         # Update the object causing the most speed reduction
@@ -1753,10 +1766,14 @@ class ExpertAgent(AutonomousAgent):
 
         return predicted_bboxes
 
-    def forecast_ego_agent(self, target_speed, num_future_frames, route_points):
+    def forecast_ego_agent(
+        self, ego_transform, ego_speed, target_speed, num_future_frames, route_points
+    ):
         """Forecast the future states of the ego agent using the kinematic bicycle model and assume their is no hazard to check subsequently whether the ego vehicle would collide.
 
         Args:
+            ego_transform (carla.Transform): The current transform of the ego vehicle.
+            ego_speed (float): The current speed of the ego vehicle
             target_speed (float): The initial target speed for the ego vehicle.
             num_future_frames (int): The number of future frames to forecast.
             route_points (numpy.ndarray): An array of waypoints representing the planned route.
@@ -1764,9 +1781,6 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             list: A list of bounding boxes representing the future states of the ego vehicle.
         """
-        ego_transform = self.ego_vehicle.get_transform()
-        ego_speed = self.ego_vehicle.get_velocity().length()
-
         self.lateral_controller.save()
         self.waypoint_planner.save()
 
@@ -1851,12 +1865,13 @@ class ExpertAgent(AutonomousAgent):
 
         return future_bboxes
 
-    def forecast_walkers(self, actors, num_future_frames):
+    def forecast_walkers(self, ego_location, actors, num_future_frames):
         """
         Forecast the future locations of walkers in the vicinity of the ego vehicle assuming they
         keep their velocity and direction
 
         Args:
+            ego_location (carla.Location): The location of the ego vehicle.
             actors (carla.ActorList): A list of actors in the simulation.
             num_future_frames (int): The number of future frames to forecast.
 
@@ -1865,7 +1880,6 @@ class ExpertAgent(AutonomousAgent):
                 - list: A list of lists, where each inner list contains the future bounding boxes for a walker.
                 - list: A list of IDs for the walkers whose locations were forecasted.
         """
-        ego_location = self.ego_vehicle.get_location()
         nearby_walkers_bboxes, nearby_walker_ids = [], []
 
         # Filter walkers within the detection radius
