@@ -35,15 +35,6 @@ from src.utils.geometry import get_angle_by_position, normalize_angle
 from src.utils.kinematic_bicycle_model import KinematicBicycleModel
 
 
-def parse_config(path_config: str):
-    def decode_expression(x):
-        return eval(x)
-
-    OmegaConf.register_new_resolver("eval", decode_expression, use_cache=False)
-    configs = OmegaConf.load(path_config)
-    return configs
-
-
 def get_entry_point():
     return "ExpertAgent"
 
@@ -94,7 +85,6 @@ class ExpertAgent(AutonomousAgent):
         control = self.run_step(input_data)
         control.manual_gear_shift = False
 
-        print(control.steer, control.throttle, control.brake)
         return control
 
     def set_global_plan(self, global_plan_gps, global_plan_world_coord):
@@ -108,6 +98,38 @@ class ExpertAgent(AutonomousAgent):
         logging.info(f"Sparse waypoints: {len(self._global_plan)}")
         logging.info(f"Dense waypoints: {len(self.origin_global_plan_gps)}")
 
+    def parse_config(self, path_config: str):
+        def decode_expression(x):
+            return eval(x)
+
+        OmegaConf.register_new_resolver("eval", decode_expression, use_cache=False)
+        configs = OmegaConf.load(path_config)
+
+        for key, value in configs.items():
+            if key not in [
+                "kinematic_bicycle_model",
+                "privileged_route_planner",
+                "route_planner",
+                "longitudinal_linear_regression_controller",
+                "lateral_pid_controller",
+            ]:
+                setattr(self, key, value)
+
+        self.lateral_pid_controller_speed_scale = (
+            configs.lateral_pid_controller.speed_scale
+        )
+        self.lateral_pid_controller_speed_offset = (
+            configs.lateral_pid_controller.speed_offset
+        )
+        self.lateral_pid_controller_default_lookahead = (
+            configs.lateral_pid_controller.default_lookahead
+        )
+        self.lateral_pid_controller_max_lookahead_distance = (
+            configs.lateral_pid_controller.max_lookahead_distance
+        )
+
+        return configs
+
     def setup(self, path_to_conf_file: str):
         """
         Setup the attributes of the expert agent.
@@ -115,7 +137,7 @@ class ExpertAgent(AutonomousAgent):
         Args:
             path_to_conf_file (str): The absolute path to the configuration file.
         """
-        configs = parse_config(path_to_conf_file)
+        configs = self.parse_config(path_to_conf_file)
 
         self.configs = configs
         self.save_path = configs.save_path
@@ -294,21 +316,19 @@ class ExpertAgent(AutonomousAgent):
         ) = self.waypoint_planner.run_step(ego_gps)
 
         # Extract relevant route information
-        self.remaining_route = route_np[int(self.configs.distance_first_checkpoint) :][
-            :: self.configs.points_per_meter
+        self.remaining_route = route_np[int(self.distance_first_checkpoint) :][
+            :: self.points_per_meter
         ]
         self.remaining_route_original = self.waypoint_planner.original_route_points[
             self.waypoint_planner.route_index :
-        ][int(self.configs.distance_first_checkpoint) :][
-            :: self.configs.points_per_meter
-        ]
+        ][int(self.distance_first_checkpoint) :][:: self.points_per_meter]
 
-        target_speed = speed_limit * self.configs.factor_target_speed_limit
+        target_speed = speed_limit * self.factor_target_speed_limit
 
         # Reduce target speed if there is a junction ahead
-        for i in range(min(self.configs.max_lookahead_near_junction, len(route_wp))):
+        for i in range(min(self.max_lookahead_near_junction, len(route_wp))):
             if route_wp[i].is_junction:
-                target_speed = min(target_speed, self.configs.max_speed_junction)
+                target_speed = min(target_speed, self.max_speed_junction)
                 break
 
         # Get the list of vehicles in the scene
@@ -362,16 +382,13 @@ class ExpertAgent(AutonomousAgent):
         # Create the control command
         control = carla.VehicleControl()
         # DEBUG
-        # control.steer = steer + self.configs.steer_noise * np.random.randn()
+        # control.steer = steer + self.steer_noise * np.random.randn()
         control.steer = steer
         control.throttle = throttle
         control.brake = float(brake or control_brake)
 
         # Apply brake if the vehicle is stopped to prevent rolling back
-        if (
-            control.throttle == 0
-            and ego_speed < self.configs.min_speed_prevent_rolling_back
-        ):
+        if control.throttle == 0 and ego_speed < self.min_speed_prevent_rolling_back:
             control.brake = 1
 
         # Apply throttle if the vehicle is blocked for too long
@@ -381,7 +398,7 @@ class ExpertAgent(AutonomousAgent):
         else:
             self.ego_blocked_for_ticks = 0
 
-        if self.ego_blocked_for_ticks >= self.configs.max_blocked_ticks:
+        if self.ego_blocked_for_ticks >= self.max_blocked_ticks:
             control.throttle = 1
             control.brake = 0
 
@@ -486,7 +503,7 @@ class ExpertAgent(AutonomousAgent):
 
                 closest_distance = first_cone.get_location().distance(ego_location)
 
-                if closest_distance < self.configs.distance_process_scenario:
+                if closest_distance < self.distance_process_scenario:
                     self.waypoint_planner.shift_route_for_invading_turn(
                         first_cone, last_cone, offset
                     )
@@ -504,11 +521,11 @@ class ExpertAgent(AutonomousAgent):
                 )
 
                 # Shift the route around the obstacles
-                if horizontal_distance < self.configs.distance_process_scenario:
+                if horizontal_distance < self.distance_process_scenario:
                     transition_length = {
-                        "Accident": self.configs.distance_smooth_transition,
-                        "ConstructionObstacle": self.configs.distance_smooth_transition_construction_obstacle,
-                        "ParkedObstacle": self.configs.distance_smooth_transition,
+                        "Accident": self.distance_smooth_transition,
+                        "ConstructionObstacle": self.distance_smooth_transition_construction_obstacle,
+                        "ParkedObstacle": self.distance_smooth_transition,
                     }[scenario_type]
                     _, _ = self.waypoint_planner.shift_route_around_actors(
                         first_actor, last_actor, direction, transition_length
@@ -538,32 +555,32 @@ class ExpertAgent(AutonomousAgent):
 
                 # Shift the route around the obstacles
                 if (
-                    horizontal_distance < self.configs.distance_process_scenario
+                    horizontal_distance < self.distance_process_scenario
                     and not changed_route
                 ):
                     transition_length = {
-                        "AccidentTwoWays": self.configs.distance_smooth_transition_accident_two_ways,
-                        "ConstructionObstacleTwoWays": self.configs.distance_smooth_transition_construction_obstacle_two_ways,
-                        "ParkedObstacleTwoWays": self.configs.distance_smooth_transition_parked_obstacle_two_ways,
-                        "VehicleOpensDoorTwoWays": self.configs.distance_smooth_transition_vehicle_opens_door_two_ways,
+                        "AccidentTwoWays": self.distance_smooth_transition_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.distance_smooth_transition_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.distance_smooth_transition_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.distance_smooth_transition_vehicle_opens_door_two_ways,
                     }[scenario_type]
                     add_before_length = {
-                        "AccidentTwoWays": self.configs.distance_before_accident_two_ways,
-                        "ConstructionObstacleTwoWays": self.configs.distance_before_construction_obstacle_two_ways,
-                        "ParkedObstacleTwoWays": self.configs.distance_before_parked_obstacle_two_ways,
-                        "VehicleOpensDoorTwoWays": self.configs.distance_before_vehicle_opens_door_two_ways,
+                        "AccidentTwoWays": self.distance_before_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.distance_before_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.distance_before_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.distance_before_vehicle_opens_door_two_ways,
                     }[scenario_type]
                     add_after_length = {
-                        "AccidentTwoWays": self.configs.distance_after_accident_two_ways,
-                        "ConstructionObstacleTwoWays": self.configs.distance_after_construction_obstacle_two_ways,
-                        "ParkedObstacleTwoWays": self.configs.distance_after_parked_obstacle_two_ways,
-                        "VehicleOpensDoorTwoWays": self.configs.distance_after_vehicle_opens_door_two_ways,
+                        "AccidentTwoWays": self.distance_after_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.distance_after_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.distance_after_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.distance_after_vehicle_opens_door_two_ways,
                     }[scenario_type]
                     factor = {
-                        "AccidentTwoWays": self.configs.factor_accident_two_ways,
-                        "ConstructionObstacleTwoWays": self.configs.factor_construction_obstacle_two_ways,
-                        "ParkedObstacleTwoWays": self.configs.factor_parked_obstacle_two_ways,
-                        "VehicleOpensDoorTwoWays": self.configs.factor_vehicle_opens_door_two_ways,
+                        "AccidentTwoWays": self.factor_accident_two_ways,
+                        "ConstructionObstacleTwoWays": self.factor_construction_obstacle_two_ways,
+                        "ParkedObstacleTwoWays": self.factor_parked_obstacle_two_ways,
+                        "VehicleOpensDoorTwoWays": self.factor_vehicle_opens_door_two_ways,
                     }[scenario_type]
 
                     (
@@ -588,7 +605,7 @@ class ExpertAgent(AutonomousAgent):
                 if (
                     changed_route
                     and from_index - self.waypoint_planner.route_index
-                    < self.configs.distance_overtake_two_way_scenario
+                    < self.distance_overtake_two_way_scenario
                     and not path_clear
                 ):
                     # Get previous roads and lanes of the target lane
@@ -600,13 +617,13 @@ class ExpertAgent(AutonomousAgent):
                     if target_lane is None:
                         return target_speed, keep_driving, speed_reduced_by_obj
                     previous_road_lane_ids = get_previous_road_lane_ids(
-                        target_lane, self.configs.distance_retrieve_id
+                        target_lane, self.distance_retrieve_id
                     )
 
                     overtake_speed = (
-                        self.configs.speed_overtake_vehicle_opens_door_two_ways
+                        self.speed_overtake_vehicle_opens_door_two_ways
                         if scenario_type == "VehicleOpensDoorTwoWays"
-                        else self.configs.speed_overtake
+                        else self.speed_overtake
                     )
                     path_clear = is_overtaking_path_clear(
                         self.world_map,
@@ -617,8 +634,8 @@ class ExpertAgent(AutonomousAgent):
                         from_index,
                         to_index,
                         previous_road_lane_ids,
-                        self.configs.safety_distance_check_path_free,
-                        self.configs.safety_time_check_path_free,
+                        self.safety_distance_check_path_free,
+                        self.safety_time_check_path_free,
                         min_speed=overtake_speed,
                     )
 
@@ -628,20 +645,20 @@ class ExpertAgent(AutonomousAgent):
                 if path_clear:
                     if (
                         self.waypoint_planner.route_index
-                        >= to_index - self.configs.distance_delete_scenario_in_two_ways
+                        >= to_index - self.distance_delete_scenario_in_two_ways
                     ):
                         Cheater.active_scenarios = Cheater.active_scenarios[1:]
                     target_speed = {
-                        "AccidentTwoWays": self.configs.speed_overtake,
-                        "ConstructionObstacleTwoWays": self.configs.speed_overtake,
-                        "ParkedObstacleTwoWays": self.configs.speed_overtake,
-                        "VehicleOpensDoorTwoWays": self.configs.speed_overtake_vehicle_opens_door_two_ways,
+                        "AccidentTwoWays": self.speed_overtake,
+                        "ConstructionObstacleTwoWays": self.speed_overtake,
+                        "ParkedObstacleTwoWays": self.speed_overtake,
+                        "VehicleOpensDoorTwoWays": self.speed_overtake_vehicle_opens_door_two_ways,
                     }[scenario_type]
                     keep_driving = True
                 else:
                     distance_leading_actor = (
                         float(from_index + 15 - self.waypoint_planner.route_index)
-                        / self.configs.points_per_meter
+                        / self.points_per_meter
                     )
                     target_speed = self._get_speed_idm(
                         ego_speed,
@@ -649,8 +666,8 @@ class ExpertAgent(AutonomousAgent):
                         self.ego_vehicle.bounding_box.extent.x,
                         0,
                         distance_leading_actor,
-                        s0=self.configs.idm.min_distance_two_way_scenario,
-                        T=self.configs.idm.time_two_way_scenario,
+                        s0=self.idm_min_distance_two_way_scenario,
+                        T=self.idm_time_two_way_scenario,
                     )
 
                     # Update the object causing the most speed reduction
@@ -681,7 +698,7 @@ class ExpertAgent(AutonomousAgent):
 
                 if (
                     horizontal_distance
-                    < self.configs.distance_process_hazard_side_lane_two_ways
+                    < self.distance_process_hazard_side_lane_two_ways
                     and not changed_route
                 ):
                     to_index = self.waypoint_planner.get_closest_route_index(
@@ -694,7 +711,7 @@ class ExpertAgent(AutonomousAgent):
 
                     starting_wp = route_waypoints[0].get_left_lane()
                     previous_road_lane_ids = get_previous_road_lane_ids(
-                        starting_wp, self.configs.distance_retrieve_id
+                        starting_wp, self.distance_retrieve_id
                     )
                     path_clear = is_overtaking_path_clear(
                         self.world_map,
@@ -705,13 +722,13 @@ class ExpertAgent(AutonomousAgent):
                         from_index,
                         to_index,
                         previous_road_lane_ids,
-                        self.configs.safety_distance_check_path_free,
-                        self.configs.safety_time_check_path_free,
-                        min_speed=self.configs.speed_overtake,
+                        self.safety_distance_check_path_free,
+                        self.safety_time_check_path_free,
+                        min_speed=self.speed_overtake,
                     )
 
                     if path_clear:
-                        transition_length = self.configs.distance_smooth_transition
+                        transition_length = self.distance_smooth_transition
                         self.waypoint_planner.shift_route_smoothly(
                             from_index, to_index, True, transition_length
                         )
@@ -729,7 +746,7 @@ class ExpertAgent(AutonomousAgent):
                         Cheater.active_scenarios = Cheater.active_scenarios[1:]
                     # Overtake with max. 50 km/h
                     target_speed, keep_driving = (
-                        self.configs.speed_overtake,
+                        self.speed_overtake,
                         True,
                     )
 
@@ -748,10 +765,10 @@ class ExpertAgent(AutonomousAgent):
                 )
 
                 if (
-                    horizontal_distance < self.configs.distance_process_hazard_side_lane
+                    horizontal_distance < self.distance_process_hazard_side_lane
                     and not changed_first_part_of_route
                 ):
-                    transition_length = self.configs.distance_smooth_transition
+                    transition_length = self.distance_smooth_transition
                     (
                         from_index,
                         to_index,
@@ -790,21 +807,19 @@ class ExpertAgent(AutonomousAgent):
                 )
 
                 if (
-                    horizontal_distance < self.configs.distance_process_scenario
+                    horizontal_distance < self.distance_process_scenario
                     and not changed_route
                 ):
                     # Assume the emergency vehicle doesn't drive more than 20 m during the overtaking process
                     from_index = (
-                        self.waypoint_planner.route_index
-                        + 30 * self.configs.points_per_meter
+                        self.waypoint_planner.route_index + 30 * self.points_per_meter
                     )
                     to_index = (
                         from_index
-                        + int(2 * self.configs.points_per_meter)
-                        * self.configs.points_per_meter
+                        + int(2 * self.points_per_meter) * self.points_per_meter
                     )
 
-                    transition_length = self.configs.distance_smooth_transition
+                    transition_length = self.distance_smooth_transition
                     to_left = (
                         self.waypoint_planner.route_waypoints[from_index].lane_change
                         != carla.LaneChange.Right
@@ -839,7 +854,7 @@ class ExpertAgent(AutonomousAgent):
             for i in range(
                 min(
                     route_points.shape[0] - 1,
-                    self.configs.distance_draw_future_route,
+                    self.distance_draw_future_route,
                 )
             ):
                 location = route_points[i]
@@ -847,8 +862,8 @@ class ExpertAgent(AutonomousAgent):
                 self.world.debug.draw_point(
                     location=location,
                     size=0.05,
-                    color=self.configs.color.future_route,
-                    life_time=self.configs.draw_life_time,
+                    color=self.color_future_route,
+                    life_time=self.draw_life_time,
                 )
 
         return target_speed, keep_driving, speed_reduced_by_obj
@@ -877,15 +892,15 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The target speed for the ego vehicle.
         """
-        a = self.configs.idm.max_acceleration  # Maximum acceleration [m/s²]
+        a = self.idm_max_acceleration  # Maximum acceleration [m/s²]
         b = (
-            self.configs.idm.comfortable_braking_deceleration_high_speed
-            if ego_speed > self.configs.idm.comfortable_braking_threshold_speed
-            else self.configs.idm.comfortable_braking_deceleration_low_speed
+            self.idm_comfortable_braking_deceleration_high_speed
+            if ego_speed > self.idm_comfortable_braking_threshold_speed
+            else self.idm_comfortable_braking_deceleration_low_speed
         )  # Comfortable deceleration [m/s²]
-        delta = self.configs.idm.acceleration_exponent  # Acceleration exponent
+        delta = self.idm_acceleration_exponent  # Acceleration exponent
 
-        t_bound = self.configs.idm.time_boundary
+        t_bound = self.idm_time_boundary
 
         def idm_equations(t, x):
             """
@@ -971,8 +986,8 @@ class ExpertAgent(AutonomousAgent):
                         vehicle.bounding_box.extent.x * 2,
                         other_speed,
                         distance_vehicle,
-                        s0=self.configs.idm.min_distance_leading_vehicle,
-                        T=self.configs.idm.time_leading_vehicle,
+                        s0=self.idm_min_distance_leading_vehicle,
+                        T=self.idm_time_leading_vehicle,
                     ),
                 )
 
@@ -1001,8 +1016,8 @@ class ExpertAgent(AutonomousAgent):
                         box=bbox,
                         rotation=bbox.rotation,
                         thickness=0.5,
-                        color=self.configs.color.bbox_leading_vehicle,
-                        life_time=self.configs.draw_life_time,
+                        color=self.color_bbox_leading_vehicle,
+                        life_time=self.draw_life_time,
                     )
                 elif vehicle_id in rear_vehicle_ids:
                     vehicle = self.world.get_actor(vehicle_id)
@@ -1015,8 +1030,8 @@ class ExpertAgent(AutonomousAgent):
                         box=bbox,
                         rotation=bbox.rotation,
                         thickness=0.5,
-                        color=self.configs.color.bbox_rear_vehicle,
-                        life_time=self.configs.draw_life_time,
+                        color=self.color_bbox_rear_vehicle,
+                        life_time=self.draw_life_time,
                     )
 
         return target_speed_wrt_leading_vehicle, speed_reduced_by_obj
@@ -1050,8 +1065,8 @@ class ExpertAgent(AutonomousAgent):
         target_speed_walker = target_speed
         target_speed_vehicle = target_speed
         ego_location = self.ego_vehicle.get_location()
-        normal_color = self.configs.color.bbox_forecasted_normal
-        hazard_color = self.configs.color.bbox_forecasted_hazard
+        normal_color = self.color_bbox_forecasted_normal
+        hazard_color = self.color_bbox_forecasted_hazard
         color = normal_color
 
         # Iterate over the ego vehicle's bounding boxes and predicted bounding boxes of other actors
@@ -1089,8 +1104,8 @@ class ExpertAgent(AutonomousAgent):
                                     blocking_actor.bounding_box.extent.x * 2,
                                     other_speed,
                                     distance_actor,
-                                    s0=self.configs.idm.min_distance_bicycle,
-                                    T=self.configs.idm.time_bicycle,
+                                    s0=self.idm_min_distance_bicycle,
+                                    T=self.idm_time_bicycle,
                                 ),
                             )
 
@@ -1147,8 +1162,8 @@ class ExpertAgent(AutonomousAgent):
                             0.5 + self.ego_vehicle.bounding_box.extent.x,
                             0.0,
                             distance_actor,
-                            s0=self.configs.idm.min_distance_walker,
-                            T=self.configs.idm.time_walker,
+                            s0=self.idm_min_distance_walker,
+                            T=self.idm_time_walker,
                         ),
                     )
 
@@ -1170,7 +1185,7 @@ class ExpertAgent(AutonomousAgent):
                     rotation=ego_bbox.rotation,
                     thickness=0.1,
                     color=color,
-                    life_time=self.configs.draw_life_time,
+                    life_time=self.draw_life_time,
                 )
 
         return (
@@ -1202,7 +1217,7 @@ class ExpertAgent(AutonomousAgent):
         """
         for light, center, waypoints in self.traffic_light_list:
             center_loc = carla.Location(center)
-            if center_loc.distance(ego_location) > self.configs.light_radius:
+            if center_loc.distance(ego_location) > self.light_radius:
                 continue
 
             for wp in waypoints:
@@ -1242,7 +1257,7 @@ class ExpertAgent(AutonomousAgent):
                         rotation=bbox.rotation,
                         thickness=0.1,
                         color=color,
-                        life_time=self.configs.draw_life_time,
+                        life_time=self.draw_life_time,
                     )
 
                     self.world.debug.draw_point(
@@ -1250,7 +1265,7 @@ class ExpertAgent(AutonomousAgent):
                         + carla.Location(z=light.trigger_volume.location.z),
                         size=0.1,
                         color=color,
-                        life_time=(1.0 / self.configs.frame_rate_carla) + 1e-6,
+                        life_time=(1.0 / self.frame_rate_carla) + 1e-6,
                     )
 
         if (
@@ -1267,8 +1282,8 @@ class ExpertAgent(AutonomousAgent):
             0.0,
             0.0,
             distance_next_traffic_light,
-            s0=self.configs.idm.min_distance_traffic_light,
-            T=self.configs.idm.time_traffic_light,
+            s0=self.idm_min_distance_traffic_light,
+            T=self.idm_time_traffic_light,
         )
 
         return target_speed
@@ -1291,7 +1306,7 @@ class ExpertAgent(AutonomousAgent):
         stop_signs = get_nearby_objects(
             self.ego_vehicle,
             actor_list.filter("*traffic.stop*"),
-            self.configs.stop_sign_radius,
+            self.stop_sign_radius,
         )
 
         for stop_sign in stop_signs:
@@ -1321,7 +1336,7 @@ class ExpertAgent(AutonomousAgent):
                     rotation=bbox_stop_sign.rotation,
                     thickness=0.1,
                     color=color,
-                    life_time=(1.0 / self.configs.frame_rate_carla) + 1e-6,
+                    life_time=(1.0 / self.frame_rate_carla) + 1e-6,
                 )
 
         if next_stop_sign is None:
@@ -1336,14 +1351,11 @@ class ExpertAgent(AutonomousAgent):
         )
 
         # Reset the stop sign flag if we are farther than 10m away
-        if distance_stop_sign > self.configs.distance_stop_sign_unclear:
+        if distance_stop_sign > self.distance_stop_sign_unclear:
             self.cleared_stop_sign = False
         else:
             # Set the stop sign flag if we are closer than 3m and speed is low enough
-            if (
-                ego_speed < 0.1
-                and distance_stop_sign < self.configs.distance_stop_sign_clear
-            ):
+            if ego_speed < 0.1 and distance_stop_sign < self.distance_stop_sign_clear:
                 self.cleared_stop_sign = True
 
         # Set the distance to stop sign as infinity if the stop sign has been cleared
@@ -1356,8 +1368,8 @@ class ExpertAgent(AutonomousAgent):
             0.0,
             0.0,
             distance_stop_sign,
-            s0=self.configs.idm.min_distance_stop_sign,
-            T=self.configs.idm.time_stop_sign,
+            s0=self.idm_min_distance_stop_sign,
+            T=self.idm_time_stop_sign,
         )
 
         # Return whether the ego vehicle is affected by the stop sign and the adjusted target speed
@@ -1407,8 +1419,8 @@ class ExpertAgent(AutonomousAgent):
                 box=ego_bbox_global,
                 rotation=ego_bbox_global.rotation,
                 thickness=0.1,
-                color=self.configs.color.bbox_ego_vehicle,
-                life_time=self.configs.draw_life_time,
+                color=self.color_bbox_ego_vehicle,
+                life_time=self.draw_life_time,
             )
 
         # Reset hazard flags
@@ -1420,19 +1432,19 @@ class ExpertAgent(AutonomousAgent):
             route_points,
             self.waypoint_planner.route_index,
             self.waypoint_planner.commands,
-            safety_distance=self.configs.safety_distance_addition_to_braking_distance,
-            min_point_lookahead=self.configs.min_lookahead_near_lane_change,
-            min_point_previous=self.configs.min_previous_near_lane_change,
-            points_per_meter=self.configs.points_per_meter,
+            safety_distance=self.safety_distance_addition_to_braking_distance,
+            min_point_lookahead=self.min_lookahead_near_lane_change,
+            min_point_previous=self.min_previous_near_lane_change,
+            points_per_meter=self.points_per_meter,
         )
 
         # Compute the number of future frames to consider for collision detection
         num_future_frames = int(
-            self.configs.frame_rate_bicycle
+            self.frame_rate_bicycle
             * (
-                self.configs.forecast_duration_lane_change
+                self.forecast_duration_lane_change
                 if near_lane_change
-                else self.configs.forecast_duration_default
+                else self.forecast_duration_default
             )
         )
 
@@ -1580,16 +1592,16 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The calculated steering angle.
         """
-        speed_scale = self.configs.lateral_pid_controller.speed_scale
-        speed_offset = self.configs.lateral_pid_controller.speed_offset
+        speed_scale = self.lateral_pid_controller_speed_scale
+        speed_offset = self.lateral_pid_controller_speed_offset
 
         # Calculate the lookahead index based on the current speed
         speed_in_kmph = current_speed * 3.6
         lookahead_distance = speed_scale * speed_in_kmph + speed_offset
         lookahead_distance = np.clip(
             lookahead_distance,
-            self.configs.lateral_pid_controller.default_lookahead,
-            self.configs.lateral_pid_controller.max_lookahead_distance,
+            self.lateral_pid_controller_default_lookahead,
+            self.lateral_pid_controller_max_lookahead_distance,
         )
         lookahead_index = int(min(lookahead_distance, route_points.shape[0] - 1))
 
@@ -1627,8 +1639,7 @@ class ExpertAgent(AutonomousAgent):
             actor
             for actor in actor_list
             if actor.id != self.ego_vehicle.id
-            and actor.get_location().distance(ego_location)
-            < self.configs.detection_radius
+            and actor.get_location().distance(ego_location) < self.detection_radius
         ]
 
         # If there are nearby actors, calculate their future bounding boxes
@@ -1713,28 +1724,28 @@ class ExpertAgent(AutonomousAgent):
 
                     # Adjust the bounding box size based on velocity and lane change maneuver to adjust for uncertainty during forecasting
                     s = (
-                        self.configs.min_extent_factor_x_other_vehicle_lane_change
+                        self.min_extent_factor_x_other_vehicle_lane_change
                         if near_lane_change
-                        else self.configs.min_extent_factor_x_other_vehicle
+                        else self.min_extent_factor_x_other_vehicle
                     )
                     extent.x *= (
-                        self.configs.extent_factor_x_ego_low_speed
+                        self.extent_factor_x_ego_low_speed
                         if future_velocities[i, actor_idx]
-                        < self.configs.speed_threshold_other_vehicle
+                        < self.speed_threshold_other_vehicle
                         else max(
                             s,
-                            self.configs.min_extent_factor_x_other_vehicle
+                            self.min_extent_factor_x_other_vehicle
                             * float(i)
                             / float(num_future_frames),
                         )
                     )
                     extent.y *= (
-                        self.configs.extent_factor_y_ego_low_speed
+                        self.extent_factor_y_ego_low_speed
                         if future_velocities[i, actor_idx]
-                        < self.configs.speed_threshold_other_vehicle
+                        < self.speed_threshold_other_vehicle
                         else max(
-                            self.configs.min_extent_factor_y_other_vehicle,
-                            self.configs.extent_factor_y_other_vehicle
+                            self.min_extent_factor_y_other_vehicle,
+                            self.extent_factor_y_other_vehicle
                             * float(i)
                             / float(num_future_frames),
                         )
@@ -1760,8 +1771,8 @@ class ExpertAgent(AutonomousAgent):
                                 box=bbox,
                                 rotation=bbox.rotation,
                                 thickness=0.1,
-                                color=self.configs.color.bbox_forecasted_other_vehicle,
-                                life_time=self.configs.draw_life_time,
+                                color=self.color_bbox_forecasted_other_vehicle,
+                                life_time=self.draw_life_time,
                             )
 
         return predicted_bboxes
@@ -1837,14 +1848,14 @@ class ExpertAgent(AutonomousAgent):
             # Otherwise we would increase the extent of the bounding box of the vehicle
             extent = carla.Vector3D(x=extent.x, y=extent.y, z=extent.z)
             extent.x *= (
-                self.configs.extent_factor_x_ego_low_speed
-                if ego_speed < self.configs.speed_threshold_ego
-                else self.configs.extent_factor_x_ego_high_speed
+                self.extent_factor_x_ego_low_speed
+                if ego_speed < self.speed_threshold_ego
+                else self.extent_factor_x_ego_high_speed
             )
             extent.y *= (
-                self.configs.extent_factor_y_ego_low_speed
-                if ego_speed < self.configs.speed_threshold_ego
-                else self.configs.extent_factor_y_ego_high_speed
+                self.extent_factor_y_ego_low_speed
+                if ego_speed < self.speed_threshold_ego
+                else self.extent_factor_y_ego_high_speed
             )
 
             transform = carla.Transform(
@@ -1886,8 +1897,7 @@ class ExpertAgent(AutonomousAgent):
         walkers = [
             walker
             for walker in actors.filter("*walker*")
-            if walker.get_location().distance(ego_location)
-            < self.configs.detection_radius
+            if walker.get_location().distance(ego_location) < self.detection_radius
         ]
 
         # If no walkers are found, return empty lists
@@ -1906,7 +1916,7 @@ class ExpertAgent(AutonomousAgent):
             ]
         )
         walker_speeds = np.array([walker.get_velocity().length() for walker in walkers])
-        walker_speeds = np.maximum(walker_speeds, self.configs.min_speed_walker)
+        walker_speeds = np.maximum(walker_speeds, self.min_speed_walker)
         walker_directions = np.array(
             [
                 [
@@ -1924,7 +1934,7 @@ class ExpertAgent(AutonomousAgent):
             + np.arange(1, num_future_frames + 1)[None, :, None]
             * walker_directions[:, None, :]
             * walker_speeds[:, None, None]
-            / self.configs.frame_rate_bicycle
+            / self.frame_rate_bicycle
         )
 
         # Iterate over walkers and calculate their future bounding boxes
@@ -1936,12 +1946,8 @@ class ExpertAgent(AutonomousAgent):
                 roll=bbox.rotation.roll + transform.rotation.roll,
             )
             extent = bbox.extent
-            extent.x = max(
-                self.configs.min_extent_walker, extent.x
-            )  # Ensure a minimum width
-            extent.y = max(
-                self.configs.min_extent_walker, extent.y
-            )  # Ensure a minimum length
+            extent.x = max(self.min_extent_walker, extent.x)  # Ensure a minimum width
+            extent.y = max(self.min_extent_walker, extent.y)  # Ensure a minimum length
 
             walker_future_bboxes = []
             for j in range(num_future_frames):
@@ -1966,8 +1972,8 @@ class ExpertAgent(AutonomousAgent):
                         box=bbox,
                         rotation=bbox.rotation,
                         thickness=0.1,
-                        color=self.configs.color.bbox_forecasted_walker,
-                        life_time=self.configs.draw_life_time,
+                        color=self.color_bbox_forecasted_walker,
+                        life_time=self.draw_life_time,
                     )
 
         return nearby_walkers_bboxes, nearby_walker_ids

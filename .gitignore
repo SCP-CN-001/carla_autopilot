@@ -2,6 +2,8 @@
 .VSCodeCounter
 CARLA_Leaderboard_20
 logs
+*.log
+*.prof
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

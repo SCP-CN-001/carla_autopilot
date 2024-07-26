@@ -66,8 +66,8 @@ def compute_min_time_for_distance(
     distance,
     target_speed,
     ego_speed,
-    time_step,
-    params_min_time_cover_distance,
+    time_step=0.05,
+    params_min_time_cover_distance=[0.00904221, 0.00733342, -0.03744807, 0.0235038],
 ):
     """
     Computes the minimum time the ego vehicle needs to travel a given distance.
@@ -77,7 +77,7 @@ def compute_min_time_for_distance(
         target_speed (float): The target speed of the ego vehicle.
         ego_speed (float): The current speed of the ego vehicle.
         time_step (float): The time step to be used for the computation.
-        params_min_time_cover_distance (list): Parameters to calculate how much the ego agent needs to cover a given distance. Values are taken from the kinematic bicycle model
+        params_min_time_cover_distance (list): Parameters to calculate how much the ego agent needs to cover a given distance. Default values are taken from the kinematic bicycle model
 
     Returns:
         float: The minimum time needed to travel the given distance.

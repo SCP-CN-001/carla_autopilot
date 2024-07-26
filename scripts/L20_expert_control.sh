@@ -21,7 +21,7 @@ export DEBUG_CHALLENGE=1
 
 # simulation setup
 export ROUTES=${WORKSPACE}/leaderboard_20/leaderboard/data/routes_training.xml
-export ROUTES_SUBSET=2
+export ROUTES_SUBSET=0
 export REPETITIONS=1
 
 export CHALLENGE_TRACK_CODENAME=MAP
@@ -33,7 +33,7 @@ export CHECKPOINT=${WORKSPACE}/logs/expert_control/route_${ROUTES_SUBSET}_${TIME
 export RESUME=1
 export TM_SEED=0
 
-python ${WORKSPACE}/src/leaderboard_custom/leaderboard_evaluator.py \
+python -m cProfile -o ${WORKSPACE}/logs/program.prof ${WORKSPACE}/src/leaderboard_custom/leaderboard_evaluator.py \
     --port=${PORT} \
     --traffic-manager-port=${TM_PORT} \
     --routes=${ROUTES} \

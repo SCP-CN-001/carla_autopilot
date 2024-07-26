@@ -29,6 +29,7 @@ class LateralPIDController(ControllerBase):
         self.default_lookahead = self.configs.default_lookahead
         self.speed_threshold = self.configs.speed_threshold
 
+        self.route_points = self.configs.route_points
         self.window_size = self.configs.window_size
         self.min_lookahead_distance = self.configs.min_lookahead_distance
         self.max_lookahead_distance = self.configs.max_lookahead_distance
@@ -66,7 +67,7 @@ class LateralPIDController(ControllerBase):
                     self.min_lookahead_distance,
                     self.max_lookahead_distance,
                 )
-                / self.configs.route_points
+                / self.route_points
             )  # range [2.4, 10.5]
             lookahead_distance = lookahead_distance - 2  # range [0.4, 8.5]
         else:

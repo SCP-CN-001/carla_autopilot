@@ -66,7 +66,7 @@ def get_traffic_light_waypoints(traffic_light, carla_map):
     # all paths at junction for this traffic light
     junction_paths = []
     path_wps = []
-    wps_queue = deque(wps.copy())
+    wps_queue = deque(wps)
     while len(wps_queue) > 0:
         current_wp = wps_queue.pop()
         path_wps.append(current_wp)

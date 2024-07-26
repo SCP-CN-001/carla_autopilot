@@ -19,15 +19,14 @@ draw_life_time: 0.051
 # Draw x meters of the route during debugging
 distance_draw_future_route: ${eval:"50*${points_per_meter}"}
 # Color of the objects in the debug visualization
-color:
-  bbox_ego_vehicle: ${eval:"carla.Color(0, 0, 0, 1)"}
-  bbox_leading_vehicle: ${eval:"carla.Color(1, 0, 0, 0)"}
-  bbox_rear_vehicle: ${eval:"carla.Color(1, 1, 1, 0)"}
-  bbox_forecasted_normal: ${eval:"carla.Color(0, 1, 0, 0)"}
-  bbox_forecasted_hazard: ${eval:"carla.Color(1, 0, 0, 0)"}
-  bbox_forecasted_other_vehicle: ${eval:"carla.Color(0, 0, 1, 1)"}
-  bbox_forecasted_walker: ${eval:"carla.Color(0, 0, 1, 1)"}
-  future_route: ${eval:"carla.Color(0, 1, 0)"}
+color_bbox_ego_vehicle: ${eval:"carla.Color(0, 0, 0, 1)"}
+color_bbox_leading_vehicle: ${eval:"carla.Color(1, 0, 0, 0)"}
+color_bbox_rear_vehicle: ${eval:"carla.Color(1, 1, 1, 0)"}
+color_bbox_forecasted_normal: ${eval:"carla.Color(0, 1, 0, 0)"}
+color_bbox_forecasted_hazard: ${eval:"carla.Color(1, 0, 0, 0)"}
+color_bbox_forecasted_other_vehicle: ${eval:"carla.Color(0, 0, 1, 1)"}
+color_bbox_forecasted_walker: ${eval:"carla.Color(0, 0, 1, 1)"}
+color_future_route: ${eval:"carla.Color(0, 1, 0)"}
 
 # -------------------------------------------------------------
 # Expert agent
@@ -108,6 +107,14 @@ distance_after_construction_obstacle_two_ways: ${eval:"1.5*${points_per_meter}"}
 distance_after_parked_obstacle_two_ways: ${eval:"-0.5*${points_per_meter}"}
 # Increase overtaking maneuver by distance in meters in the scenario VehicleOpensDoorTwoWays after the obstacle
 distance_after_vehicle_opens_door_two_ways: ${eval:"-2.0*${points_per_meter}"}
+# How much to drive to the center of the opposite lane while handling the scenario AccidentTwoWays
+factor_accident_two_ways: 1.0
+# How much to drive to the center of the opposite lane while handling the scenario ConstructionObstacleTwoWays
+factor_construction_obstacle_two_ways: 1.0
+# How much to drive to the center of the opposite lane while handling the scenario ParkedObstacleTwoWays
+factor_parked_obstacle_two_ways: 0.6
+# How much to drive to the center of the opposite lane while handling the scenario VehicleOpensDoorTwoWays
+factor_vehicle_opens_door_two_ways: 0.475
 
 # Safety distance during checking if the path is free for RouteObstacle scenarios
 safety_distance_check_path_free: 10
@@ -156,43 +163,42 @@ extent_factor_y_other_vehicle: 1.3
 # -------------------------------------------------------------
 # IDM model
 # ------------------------------------------------------------
-idm:
-  # Maximum acceleration of the vehicle (m/s^2)
-  max_acceleration: 24.0
-  # Acceleration exponent
-  acceleration_exponent: 4.0
-  # Boundary time - the integration won’t continue beyond it.
-  time_boundary: 0.05
-  # The threshold speed for adapting the comfortable braking deceleration (m/s)
-  comfortable_braking_threshold_speed: 6.02
-  # Maximum comfortable deceleration of the vehicle (m/s^2) for high speed
-  comfortable_braking_deceleration_high_speed: 3.72
-  # Maximum comfortable deceleration of the vehicle (m/s^2) for low speed
-  comfortable_braking_deceleration_low_speed: 8.7
-  # Minimum distance for leading vehicles
-  min_distance_leading_vehicle: 4.0
-  # Minimum distance for bicycles
-  min_distance_bicycle: 4.0
-  # Minimum distance for walkers
-  min_distance_walker: 4.0
-  # Minimum distance for traffic lights
-  min_distance_traffic_light: 6.0
-  # Minimum distance for stop signs
-  min_distance_stop_sign: 2.0
-  # Minimum distance for two way scenarios
-  min_distance_two_way_scenario: 2.0
-  # Desired headway time for leading vehicles
-  time_leading_vehicle: 0.25
-  # Desired headway time for bicycles
-  time_bicycle: 0.25
-  # Desired headway time for walkers
-  time_walker: 0.25
-  # Desired headway time for traffic lights
-  time_traffic_light: 0.1
-  # Desired headway time for stop signs
-  time_stop_sign: 0.1
+# Maximum acceleration of the vehicle (m/s^2)
+idm_max_acceleration: 24.0
+# Acceleration exponent
+idm_acceleration_exponent: 4.0
+# Boundary time - the integration won’t continue beyond it.
+idm_time_boundary: 0.05
+# The threshold speed for adapting the comfortable braking deceleration (m/s)
+idm_comfortable_braking_threshold_speed: 6.02
+# Maximum comfortable deceleration of the vehicle (m/s^2) for high speed
+idm_comfortable_braking_deceleration_high_speed: 3.72
+# Maximum comfortable deceleration of the vehicle (m/s^2) for low speed
+idm_comfortable_braking_deceleration_low_speed: 8.7
+# Minimum distance for leading vehicles
+idm_min_distance_leading_vehicle: 4.0
+# Minimum distance for bicycles
+idm_min_distance_bicycle: 4.0
+# Minimum distance for walkers
+idm_min_distance_walker: 4.0
+# Minimum distance for traffic lights
+idm_min_distance_traffic_light: 6.0
+# Minimum distance for stop signs
+idm_min_distance_stop_sign: 2.0
+# Minimum distance for two way scenarios
+idm_min_distance_two_way_scenario: 2.0
+# Desired headway time for leading vehicles
+idm_time_leading_vehicle: 0.25
+# Desired headway time for bicycles
+idm_time_bicycle: 0.25
+# Desired headway time for walkers
+idm_time_walker: 0.25
+# Desired headway time for traffic lights
+idm_time_traffic_light: 0.1
+# Desired headway time for stop signs
+idm_time_stop_sign: 0.1
 # Desired headway time for two way scenarios
-  time_two_way_scenario: 0.1
+idm_time_two_way_scenario: 0.1
 
 # -------------------------------------------------------------
 # Kinematic Bicycle Model
@@ -294,6 +300,8 @@ lateral_pid_controller:
   min_lookahead_distance: ${eval:"2.4*${points_per_meter}"}
   # The maximum allowed lookahead distance for the lateral PID controller.
   max_lookahead_distance: ${eval:"10.5*${points_per_meter}"}
+  # Number of route points to render in logger
+  route_points: 10
 
 # -------------------------------------------------------------
 # Privileged Route Planner
