@@ -17,7 +17,7 @@ export PYTHONPATH=$PYTHONPATH:/home/rowena/Documents/RAMBLE/carla_autopilot
 # general parameters
 export PORT=2000
 export TM_PORT=2500
-export DEBUG_CHALLENGE=1
+export DEBUG_CHALLENGE=0
 
 # simulation setup
 export ROUTES=${WORKSPACE}/leaderboard_20/leaderboard/data/routes_training.xml

@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: route.py
+# @Description: Utility functions for route in CARLA.
+# @CreatedTime: 2024/07/26
+# @Author: Yueyuan Li, PDM-Lite Team
+
 import carla
 import numpy as np
 from agents.navigation.local_planner import RoadOption

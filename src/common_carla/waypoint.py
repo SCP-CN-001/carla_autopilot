@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: waypoint.py
+# @Description: Utility functions for waypoints in CARLA.
+# @CreatedTime: 2024/07/26
+# @Author: Yueyuan Li
+
 import carla
 
 

@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: actor.py
+# @Description: Utility functions for actors in CARLA.
+# @CreatedTime: 2024/07/26
+# @Author: Yueyuan Li, PDM-Lite Team
+
 import logging
 
 import carla

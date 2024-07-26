@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: bounding_box.py
+# @Description: Utility functions for bounding boxes in CARLA.
+# @CreatedTime: 2024/07/26
+# @Author: Yueyuan Li, PDM-Lite Team
+
 import carla
 import numpy as np
 from agents.tools.misc import get_trafficlight_trigger_location

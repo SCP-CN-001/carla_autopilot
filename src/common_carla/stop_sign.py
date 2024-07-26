@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: stop_sign.py
+# @Description: Check if the vehicle is affected by a stop sign.
+# @CreatedTime: 2024/07/26
+# @Author: Yueyuan Li, PDM-Lite Team
+
 import carla
 
 from src.common_carla.bounding_box import is_point_in_bbox

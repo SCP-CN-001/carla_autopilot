@@ -2,7 +2,7 @@
 # @File: longitudinal_controller.py
 # @Description: Longitudinal controller for the vehicle.
 # @CreatedTime: 2024/07/08
-# @Author: Yueyuan Li, PDM-Lite
+# @Author: Yueyuan Li, PDM-Lite Team
 
 import numpy as np
 

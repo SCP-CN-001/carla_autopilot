@@ -2,7 +2,7 @@
 # @File: kinematic_bicycle_model.py
 # @Description: Kinematic bicycle model describing the motion of a car given its state and action.
 # @CreatedTime: 2024/07/09
-# @Author: PDM-Lite
+# @Author: PDM-Lite Team
 
 
 import numpy as np

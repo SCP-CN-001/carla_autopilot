@@ -1,6 +1,6 @@
 ##!/usr/bin/env python3
 # @File: chauffeurnet.py
-# @Description:
+# @Description: Utilities to render bird's eye view semantic segmentation maps.
 # @CreatedTime: 2024/07/15
 # @Author: Roach
 

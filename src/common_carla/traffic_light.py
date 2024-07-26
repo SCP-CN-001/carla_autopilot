@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: traffic_light.py
+# @Description: Check if the vehicle is affected by a traffic light and generate stop lines for the traffic lights.
+# @CreatedTime: 2024/07/26
+# @Author: Yueyuan Li, PDM-Lite Team
+
 from collections import deque
 
 import carla

@@ -2,8 +2,7 @@
 # @File: expert_agent.py
 # @Description: An expert agent for data collection in CARLA Leaderboard 2.0.
 # @CreatedTime: 2024/07/08
-# @Author: Yueyuan Li, PDM-Lite
-
+# @Author: Yueyuan Li, PDM-Lite Team
 
 import logging
 import math
@@ -381,9 +380,7 @@ class ExpertAgent(AutonomousAgent):
 
         # Create the control command
         control = carla.VehicleControl()
-        # DEBUG
-        # control.steer = steer + self.steer_noise * np.random.randn()
-        control.steer = steer
+        control.steer = steer + self.steer_noise * np.random.randn()
         control.throttle = throttle
         control.brake = float(brake or control_brake)
 

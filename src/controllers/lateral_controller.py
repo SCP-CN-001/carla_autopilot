@@ -1,8 +1,8 @@
 ##!/usr/bin/env python3
 # @File: lateral_controller.py
-# @Description: Lateral controller for the vehicle.
+# @Description: Lateral PID controller for the vehicle.
 # @CreatedTime: 2024/07/08
-# @Author: PDM-Lite
+# @Author: Yueyuan Li, PDM-Lite Team
 
 
 import numpy as np
