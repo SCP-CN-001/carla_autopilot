@@ -1,0 +1,33 @@
+width: 800
+height: 480
+surface_configs:
+  camera_front:
+    render_method: camera
+    scale: 0.75
+    loc_x: 0
+    loc_y: 0
+  camera_left:
+    render_method: camera
+    scale: 0.25
+    loc_x: 0
+    loc_y: 360
+  camera_rear:
+    render_method: camera
+    scale: 0.25
+    loc_x: 160
+    loc_y: 360
+  camera_right:
+    render_method: camera
+    scale: 0.25
+    loc_x: 320
+    loc_y: 360
+  lidar:
+    render_method: lidar
+    scale: 0.50
+    loc_x: 480
+    loc_y: 0
+  semantic_bev:
+    render_method: semantic_segmentation
+    scale: 0.50
+    loc_x: 480
+    loc_y: 240

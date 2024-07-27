@@ -114,19 +114,6 @@ class ExpertAgent(AutonomousAgent):
             ]:
                 setattr(self, key, value)
 
-        self.lateral_pid_controller_speed_scale = (
-            configs.lateral_pid_controller.speed_scale
-        )
-        self.lateral_pid_controller_speed_offset = (
-            configs.lateral_pid_controller.speed_offset
-        )
-        self.lateral_pid_controller_default_lookahead = (
-            configs.lateral_pid_controller.default_lookahead
-        )
-        self.lateral_pid_controller_max_lookahead_distance = (
-            configs.lateral_pid_controller.max_lookahead_distance
-        )
-
         return configs
 
     def setup(self, path_to_conf_file: str):
@@ -136,16 +123,15 @@ class ExpertAgent(AutonomousAgent):
         Args:
             path_to_conf_file (str): The absolute path to the configuration file.
         """
-        configs = self.parse_config(path_to_conf_file)
-
-        self.configs = configs
-        self.save_path = configs.save_path
+        self.configs = self.parse_config(path_to_conf_file)
         self.step = -1
 
         # Dynamics models
-        self.ego_physics_model = KinematicBicycleModel(configs.kinematic_bicycle_model)
+        self.ego_physics_model = KinematicBicycleModel(
+            self.configs.kinematic_bicycle_model
+        )
         self.vehicle_physics_model = KinematicBicycleModel(
-            configs.kinematic_bicycle_model
+            self.configs.kinematic_bicycle_model
         )
 
         self.world = CarlaDataProvider.get_world()
@@ -161,7 +147,9 @@ class ExpertAgent(AutonomousAgent):
         starts_with_parking_exit = distance_road > 2
 
         # Setup planners
-        self.waypoint_planner = PrivilegedRoutePlanner(configs.privileged_route_planner)
+        self.waypoint_planner = PrivilegedRoutePlanner(
+            self.configs.privileged_route_planner
+        )
         self.waypoint_planner.setup_route(
             self.origin_global_plan_world_coord,
             self.world,
@@ -171,7 +159,7 @@ class ExpertAgent(AutonomousAgent):
         )
         self.waypoint_planner.save()
 
-        self.command_planner = RoutePlanner(configs.route_planner)
+        self.command_planner = RoutePlanner(self.configs.route_planner)
         self.command_planner.set_route(self._global_plan_world_coord)
 
         # Navigation command buffer, needed because the correct command comes from the last cleared waypoint
@@ -188,9 +176,23 @@ class ExpertAgent(AutonomousAgent):
 
         # Setup controllers
         self.longitudinal_controller = LongitudinalLinearRegressionController(
-            configs.longitudinal_linear_regression_controller
+            self.configs.longitudinal_linear_regression_controller
         )
-        self.lateral_controller = LateralPIDController(configs.lateral_pid_controller)
+        self.lateral_controller = LateralPIDController(
+            self.configs.lateral_pid_controller
+        )
+        self.lateral_pid_controller_speed_scale = (
+            self.configs.lateral_pid_controller.speed_scale
+        )
+        self.lateral_pid_controller_speed_offset = (
+            self.configs.lateral_pid_controller.speed_offset
+        )
+        self.lateral_pid_controller_default_lookahead = (
+            self.configs.lateral_pid_controller.default_lookahead
+        )
+        self.lateral_pid_controller_max_lookahead_distance = (
+            self.configs.lateral_pid_controller.max_lookahead_distance
+        )
 
         # Initialize controls
         self.steer = 0.0
@@ -215,7 +217,6 @@ class ExpertAgent(AutonomousAgent):
         self.vehicle_lights = (
             carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
         )
-        # Set up logging
 
         # Preprocess traffic lights
         all_actors = self.world.get_actors()

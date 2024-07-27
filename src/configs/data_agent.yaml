@@ -1,0 +1,19 @@
+path_agent_configs: src/configs/expert_agent.yaml
+path_sensor_configs: src/configs/sensors.yaml
+path_visualizer_configs: src/configs/visualize_binary.yaml
+path_palette_map: src/configs/binary_palette.yaml
+
+visualize: true
+sensor_ids: [gnss, camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
+
+# Wandb
+project: ramble
+name: data_collection
+route: routes_training
+route_subset: 0
+
+# Data files
+path_save: data/expert_data/route_${route_subset}
+save_control_command: true
+save_control_command_to_wandb: true
+save_runtime_to_wandb: true

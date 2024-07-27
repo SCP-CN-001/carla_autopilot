@@ -2,9 +2,6 @@
 # World and map
 # -------------------------------------------------------------
 
-visualize: false
-track: none
-save_path: none
 frame_rate_carla: 20.0
 time_step_carla: ${eval:"1.0/${frame_rate_carla}"}
 # Maximum number of ticks the agent doesn't take any action. The maximum is 169 and it's speed must be >0.1.
