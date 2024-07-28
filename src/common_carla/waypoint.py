@@ -30,11 +30,11 @@ def get_next_waypoints(world, ego_vehicle):
         # https://github.com/carla-simulator/carla/issues/2511#issuecomment-597230746
         while current_road_id == next_road_id and current_lane_id == next_lane_id:
             # Get a list of waypoints at a certain approximate distance.
-            list_next_waypoints = current_waypoint[0].next(distance=1)
-            if len(list_next_waypoints) == 0:
+            next_waypoints_list = current_waypoint[0].next(distance=1)
+            if len(next_waypoints_list) == 0:
                 break
-            current_waypoint = list_next_waypoints
-            next_waypoint = list_next_waypoints[0]
+            current_waypoint = next_waypoints_list
+            next_waypoint = next_waypoints_list[0]
             next_waypoints.append(next_waypoint)
             next_road_id = next_waypoint.road_id
             next_lane_id = next_waypoint.lane_id

@@ -158,7 +158,7 @@ class AgentWrapper:
 
     _agent = None
     _sensors_list = []
-    sensor_list_names = []
+    sensor_name_list = []
 
     def __init__(self, agent):
         """
@@ -311,7 +311,7 @@ class AgentWrapper:
             # setup callback
             sensor.listen(CallBack(id_, type_, sensor, self._agent.sensor_interface))
             self._sensors_list.append(sensor)
-            self.sensor_list_names.append([sensor_spec["id"], sensor])
+            self.sensor_name_list.append([sensor_spec["id"], sensor])
 
         # Some sensors miss sending data during the first ticks, so tick several times and remove the data
         for _ in range(10):
@@ -328,7 +328,7 @@ class AgentWrapper:
                 self._sensors_list[i] = None
 
         self._sensors_list.clear()
-        self.sensor_list_names.clear()
+        self.sensor_name_list.clear()
 
         # Tick once to destroy the sensors
         CarlaDataProvider.get_world().tick()
@@ -376,4 +376,4 @@ class ROSAgentWrapper(AgentWrapper):
         # Tick once to destroy the sensors
         CarlaDataProvider.get_world().tick()
         self._sensors_list.clear()
-        self.sensor_list_names.clear()
+        self.sensor_name_list.clear()

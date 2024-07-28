@@ -153,19 +153,19 @@ class TrafficLightHandler:
 
     world_map = None
     num_traffic_light = 0
-    list_traffic_light = []
-    list_trigger_volume_loc = []
-    list_stopline_wps = []
-    list_stopline_vtx = []
-    list_junction_paths = []
+    traffic_light_list = []
+    trigger_volume_loc_list = []
+    stopline_wps_list = []
+    stopline_vtx_list = []
+    junction_path_list = []
 
     @staticmethod
     def reset(world):
         TrafficLightHandler.world_map = world.get_map()
         TrafficLightHandler.num_traffic_light = 0
-        TrafficLightHandler.list_traffic_light = []
-        TrafficLightHandler.list_stopline_vtx = []
-        TrafficLightHandler.list_junction_paths = []
+        TrafficLightHandler.traffic_light_list = []
+        TrafficLightHandler.stopline_vtx_list = []
+        TrafficLightHandler.junction_path_list = []
 
         all_actors = world.get_actors()
         for actor in all_actors:
@@ -177,11 +177,11 @@ class TrafficLightHandler:
                     junction_paths,
                 ) = get_traffic_light_waypoints(actor, TrafficLightHandler.world_map)
 
-                TrafficLightHandler.list_traffic_light.append(actor)
-                TrafficLightHandler.list_trigger_volume_loc.append(trigger_volume_loc)
-                TrafficLightHandler.list_stopline_wps.append(stopline_wps)
-                TrafficLightHandler.list_stopline_vtx.append(stopline_vtx)
-                TrafficLightHandler.list_junction_paths.append(junction_paths)
+                TrafficLightHandler.traffic_light_list.append(actor)
+                TrafficLightHandler.trigger_volume_loc_list.append(trigger_volume_loc)
+                TrafficLightHandler.stopline_wps_list.append(stopline_wps)
+                TrafficLightHandler.stopline_vtx_list.append(stopline_vtx)
+                TrafficLightHandler.junction_path_list.append(junction_paths)
                 TrafficLightHandler.num_traffic_light += 1
 
     @staticmethod
@@ -197,12 +197,12 @@ class TrafficLightHandler:
         light_id = None
 
         for i in range(TrafficLightHandler.num_traffic_light):
-            light = TrafficLightHandler.list_traffic_light[i]
-            trigger_volume_loc = TrafficLightHandler.list_tv_loc[i]
+            light = TrafficLightHandler.traffic_light_list[i]
+            trigger_volume_loc = TrafficLightHandler.trigger_volume_loc_list[i]
             if trigger_volume_loc.distance(hit_loc) > dist_threshold:
                 continue
 
-            for wp in TrafficLightHandler.list_stopline_wps[i]:
+            for wp in TrafficLightHandler.stopline_wps_list[i]:
                 wp_direction = wp.transform.get_forward_vector()
                 dot_vehicle_wp = dot_product(wp_direction, vehicle_direction)
 
@@ -235,15 +235,15 @@ class TrafficLightHandler:
 
         junction_paths = []
         for i in range(TrafficLightHandler.num_traffic_light):
-            traffic_light = TrafficLightHandler.list_traffic_light[i]
-            trigger_volume_loc = TrafficLightHandler.list_trigger_volume_loc[i]
+            traffic_light = TrafficLightHandler.traffic_light_list[i]
+            trigger_volume_loc = TrafficLightHandler.trigger_volume_loc_list[i]
 
             if trigger_volume_loc.distance(vehicle_location) > dist_threshold:
                 continue
             if traffic_light.state != traffic_light_state:
                 continue
 
-            junction_paths += TrafficLightHandler.list_junction_paths[i]
+            junction_paths += TrafficLightHandler.junction_path_list[i]
 
         return junction_paths
 
@@ -256,8 +256,8 @@ class TrafficLightHandler:
 
         stopline_vtx = []
         for i in range(TrafficLightHandler.num_traffic_light):
-            traffic_light = TrafficLightHandler.list_traffic_light[i]
-            trigger_volume_loc = TrafficLightHandler.list_trigger_volume_loc[i]
+            traffic_light = TrafficLightHandler.traffic_light_list[i]
+            trigger_volume_loc = TrafficLightHandler.trigger_volume_loc_list[i]
 
             if trigger_volume_loc.distance(vehicle_location) > dist_threshold:
                 continue
@@ -270,9 +270,9 @@ class TrafficLightHandler:
                         traffic_light.id == int(close_traffic_light[2])
                         and close_traffic_light[3]
                     ):
-                        stopline_vtx += TrafficLightHandler.list_stopline_vtx[i]
+                        stopline_vtx += TrafficLightHandler.stopline_vtx_list[i]
                         break
             else:
-                stopline_vtx += TrafficLightHandler.list_stopline_vtx[i]
+                stopline_vtx += TrafficLightHandler.stopline_vtx_list[i]
 
         return stopline_vtx

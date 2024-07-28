@@ -4,16 +4,24 @@
 # @CreatedTime: 2024/07/26
 # @Author: Yueyuan Li
 
+import copy
 import json
 import logging
 import os
+import threading
 
+import cv2
+import numpy as np
+import open3d as o3d
+import pygame
 import wandb
 from omegaconf import OmegaConf
 from srunner.scenariomanager.timer import GameTime
 
+from src.common_carla.bounding_box import get_polygon_shape
 from src.expert_agent import ExpertAgent
 from src.utils.common import get_absolute_path
+from src.utils.geometry import get_transform_2D
 from src.utils.visualizer import Visualizer
 
 
@@ -64,6 +72,8 @@ class DataAgent(ExpertAgent):
                     "system_time": round(wallclock_diff, 3),
                     "game_time": round(timestamp, 3),
                     "sim_ratio": round(sim_ratio, 3),
+                    "target_speed": self.target_speed,
+                    "ego_speed": self.ego_vehicle.get_velocity().length(),
                 }
             )
 
@@ -103,6 +113,36 @@ class DataAgent(ExpertAgent):
             if not os.path.exists(path_data):
                 os.makedirs(path_data)
 
+        if getattr(self, "save_semantic_bev") is not None:
+            self.palette = np.array(
+                OmegaConf.load(
+                    get_absolute_path(self.save_semantic_bev["path_palette"])
+                ).color_map
+            )
+
+            for path_save in self.save_semantic_bev["path_save"]:
+                sensor_id = self.save_semantic_bev["sensor_id"]
+                if not os.path.exists(
+                    get_absolute_path(f"{self.path_save}/{sensor_id}/{path_save}")
+                ):
+                    os.makedirs(
+                        get_absolute_path(f"{self.path_save}/{sensor_id}/{path_save}")
+                    )
+
+        if self.save_route:
+            if not os.path.exists(f"{self.path_save}/route"):
+                os.makedirs(f"{self.path_save}/route")
+
+            self.wps_list = []
+            self.route_image = pygame.Surface((600, 400))
+
+        self.lidar_id_list = []
+        self.lidar_cache = {}
+        for sensor_id, sensor_config in self.sensor_configs.items():
+            if sensor_config["blueprint"] == "sensor.lidar.ray_cast":
+                self.lidar_id_list.append(sensor_id)
+                self.lidar_cache[sensor_id] = None
+
         if self.visualize:
             logging.info("This simulation is in visualize mode.")
             self.visualize_configs = OmegaConf.load(
@@ -111,6 +151,7 @@ class DataAgent(ExpertAgent):
             self.visualize_configs = OmegaConf.to_container(
                 self.visualize_configs, resolve=True
             )
+
             self.visualizer = Visualizer(self.visualize_configs)
         else:
             logging.info("This simulation is not in visualize mode.")
@@ -155,22 +196,148 @@ class DataAgent(ExpertAgent):
         self.control_commands["gear"].append(control.gear)
 
     def save_image(self, image, folder_name):
-        pass
+        path_file = f"{self.path_save}/{folder_name}/frame_{self.step:06d}.png"
+        cv2.imwrite(path_file, image)
 
     def save_lidar(self, lidar, folder_name):
-        pass
+        path_file = f"{self.path_save}/{folder_name}/frame_{self.step:06d}.ply"
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(lidar[:, :3])
+        o3d.io.write_point_cloud(path_file, pcd)
+
+    def save_semantic_segmentation(self, semantic_segmentation, folder_name):
+        if getattr(self, "palette") is None:
+            return
+
+        images = self.palette[semantic_segmentation[:, :, -2]]
+
+        assert images.shape[2] == len(
+            self.save_semantic_bev["path_save"]
+        ), "The number of semantic segmentation classes should be equal to the number of save semantic BEV classes."
+
+        if self.save_semantic_bev["binary"]:
+            images = images * 255
+            for i, path_save in enumerate(self.save_semantic_bev["path_save"]):
+                path_file = f"{self.path_save}/{folder_name}/{path_save}/frame_{self.step:06d}.png"
+                cv2.imwrite(path_file, images[:, :, i])
+        else:
+            path_file = f"{self.path_save}/{folder_name}/frame_{self.step:06d}.png"
+            cv2.imwrite(path_file, images)
+
+    def save_sensor_data(self, input_data):
+        def execute_save(input_data):
+            for sensor_id in self.sensor_ids:
+                if self.sensor_configs[sensor_id]["type"] == "sensor.camera.rgb":
+                    self.save_image(input_data[sensor_id][1], sensor_id)
+                elif (
+                    self.sensor_configs[sensor_id]["type"]
+                    == "sensor.camera.semantic_segmentation"
+                ):
+                    self.save_semantic_segmentation(input_data[sensor_id][1], sensor_id)
+                elif self.sensor_configs[sensor_id]["type"] == "sensor.lidar.ray_cast":
+                    self.save_lidar(input_data[sensor_id][1], sensor_id)
+
+        # Currently, we can only handle two frame rates: 10 and 20
+        if self.frame_rate_carla == 10:
+            execute_save(input_data)
+
+        elif self.frame_rate_carla == 20:
+            if self.step > 0 and self.step % 2 == 0:
+                sensor_data = copy.deepcopy(input_data)
+                for lidar_id in self.lidar_id_list:
+                    points = np.concatenate(
+                        [
+                            np.array(sensor_data[lidar_id][1]),
+                            np.array(self.lidar_cache[lidar_id]),
+                        ]
+                    )
+                    del sensor_data[lidar_id]
+                    sensor_data[lidar_id] = (None, points)
+                    execute_save(sensor_data)
+
+                    self.lidar_cache[lidar_id] = None
+
+            elif self.step > 0 and self.step % 2 == 1:
+                for lidar_id in self.lidar_id_list:
+                    self.lidar_cache[lidar_id] = input_data[lidar_id][1]
+
+    def save_route_data(self):
+        logging.debug("Saving route data.")
+        ego_location = self.ego_vehicle.get_location()
+        ego_transform = self.ego_vehicle.get_transform()
+
+        self.route_image.fill((0, 0, 0))
+
+        route_points = []
+        for route_point in self.remaining_route_original[:40]:
+            route_points.append([route_point[0], route_point[1]])
+
+        route_points = get_transform_2D(
+            np.array(route_points),
+            np.array([ego_location.x, ego_location.y]),
+            np.deg2rad(ego_transform.rotation.yaw),
+        )
+
+        # Move the center of ego vehicle to (100, 200) in the surface.
+        route_points = route_points * 10 + np.array([100, 200])
+
+        pygame.draw.aalines(self.route_image, (255, 255, 255), False, route_points, 2)
+
+        for bbox, wp_location in self.traffic_light_bbox.values():
+            bbox_shape = get_polygon_shape(bbox)
+            print(bbox.location, ego_transform.location)
+            print(bbox_shape)
+            transformed_bbox_shape = get_transform_2D(
+                np.array(bbox_shape),
+                np.array([ego_location.x, ego_location.y]),
+                np.deg2rad(ego_transform.rotation.yaw),
+            )
+            print(transformed_bbox_shape)
+            transformed_wp = get_transform_2D(
+                np.array([wp_location.x, wp_location.y]),
+                np.array([ego_location.x, ego_location.y]),
+                np.deg2rad(ego_transform.rotation.yaw),
+            )
+            print(transformed_wp)
+            pygame.draw.polygon(self.route_image, (0, 0, 0), transformed_bbox_shape)
+            pygame.draw.circle(self.route_image, 5, transformed_wp, (0, 0, 0))
+
+        for bbox in self.stop_sign_bbox:
+            bbox_shape = get_polygon_shape(bbox)
+            transformed_bbox_shape = get_transform_2D(
+                np.array(bbox_shape),
+                np.array([ego_location.x, ego_location.y]),
+                np.deg2rad(ego_transform.rotation.yaw),
+            )
+            pygame.draw.polygon(self.route_image, (0, 0, 0), transformed_bbox_shape)
+
+        pygame.image.save(
+            self.route_image, f"{self.path_save}/route/frame_{self.step:06d}.png"
+        )
 
     def run_step(self, input_data):
-        control = super().run_step(input_data)
+        thread_1 = threading.Thread(target=super().run_step, args=(input_data,))
+        thread_2 = threading.Thread(target=self.save_sensor_data, args=(input_data,))
 
-        # add data saver
-        if self.save_control_command:
-            self.cache_control_command(control)
+        thread_1.start()
+        thread_2.start()
+        thread_1.join()
+        thread_2.join()
+
+        if self.save_route:
+            self.save_route_data()
 
         if self.visualize:
             self.visualizer.update(input_data)
 
-        return control
+        if self.save_control_command:
+            if self.frame_rate_carla == 10:
+                self.cache_control_command(self.control)
+            elif self.frame_rate_carla == 20:
+                if self.step % 2 == 0:
+                    self.cache_control_command(self.control)
+
+        return self.control
 
     def destroy(self):
         super().destroy()
@@ -179,6 +346,18 @@ class DataAgent(ExpertAgent):
             self.visualizer.quit()
 
         if wandb.run is not None:
+            if self.save_control_command_to_wandb:
+                steer_table = wandb.Table(
+                    data=[[x] for x in self.control_commands["steer"]],
+                    columns=["steer"],
+                )
+                wandb.log(
+                    {
+                        "steer_distribution": wandb.plot.histogram(
+                            steer_table, "steer"
+                        ),
+                    }
+                )
             wandb.finish()
 
         if self.save_control_command:

@@ -105,7 +105,7 @@ def detect_obstacle(
     ego_actor,
     world_map,
     planner: LocalPlanner,
-    list_actor: list,
+    actor_list: list,
     max_distance: float,
     angle_range=[0, 90],
     lane_offset: float = 0.0,
@@ -133,7 +133,7 @@ def detect_obstacle(
     # Get the route bounding box
     route_polygon = get_route_polygon(planner, max_distance, offset=lane_offset)
 
-    for target_actor in list_actor:
+    for target_actor in actor_list:
         if target_actor.id == ego_actor.id:
             continue
 
@@ -149,8 +149,8 @@ def detect_obstacle(
         if use_bbox or target_wp.is_junction:
             target_bbox = target_actor.bounding_box
             target_vtx = target_bbox.get_world_vertices(target_transform)
-            list_target = [[v.x, v.y, v.z] for v in target_vtx]
-            target_polygon = Polygon(list_target)
+            target_list = [[v.x, v.y, v.z] for v in target_vtx]
+            target_polygon = Polygon(target_list)
 
             if route_polygon.intersects(target_polygon):
                 distance_to_obstacle = compute_distance(

@@ -1,5 +1,6 @@
 width: 800
 height: 480
+path_binary_palette: src/configs/binary_palette.yaml
 surface_configs:
   camera_front:
     render_method: camera
@@ -27,7 +28,7 @@ surface_configs:
     loc_x: 480
     loc_y: 0
   semantic_bev:
-    render_method: semantic_segmentation
+    render_method: semantic_segmentation_binary
     scale: 0.50
     loc_x: 480
     loc_y: 240

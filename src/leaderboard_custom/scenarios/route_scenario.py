@@ -85,7 +85,7 @@ class RouteScenario(BasicScenario):
         self.behavior_node = None  # behavior node created by _create_behavior()
         self.criteria_node = None  # criteria node created by _create_test_criteria()
 
-        self.list_scenarios = []
+        self.scenario_list = []
         self.occupied_parking_locations = []
         self.available_parking_locations = []
 
@@ -205,7 +205,7 @@ class RouteScenario(BasicScenario):
 
         # Occupied parking locations
         occupied_parking_locations = []
-        for scenario in self.list_scenarios:
+        for scenario in self.scenario_list:
             occupied_parking_locations.extend(scenario.get_parking_slots())
 
         available_parking_locations = []
@@ -387,7 +387,7 @@ class RouteScenario(BasicScenario):
                     Cheater.update(scenario_config.type, scenario_instance)
 
                     # Add new scenarios to list
-                    self.list_scenarios.append(scenario_instance)
+                    self.scenario_list.append(scenario_instance)
                     new_scenarios.append(scenario_instance)
                     self.missing_scenario_configurations.remove(scenario_config)
 
@@ -452,7 +452,7 @@ class RouteScenario(BasicScenario):
         Set other_actors to the superset of all scenario actors
         """
         # Add all the actors of the specific scenarios to self.other_actors
-        for scenario in self.list_scenarios:
+        for scenario in self.scenario_list:
             self.other_actors.extend(scenario.other_actors)
 
     def _create_behavior(self):

@@ -9,8 +9,9 @@ import time
 
 import numpy as np
 import pygame
+from omegaconf import OmegaConf
 
-from .palettes import *
+from src.utils.common import get_absolute_path
 
 
 class Visualizer:
@@ -22,6 +23,20 @@ class Visualizer:
         self._surface_configs = configs["surface_configs"]
         self._cnt = 0
 
+        if "path_semantic_palette" in configs:
+            self.semantic_palette = np.array(
+                OmegaConf.load(
+                    get_absolute_path(configs["path_semantic_palette"])
+                ).color_map
+            )
+
+        if "path_binary_palette" in configs:
+            self.binary_palette = np.array(
+                OmegaConf.load(
+                    get_absolute_path(configs["path_binary_palette"])
+                ).color_map
+            )
+
         pygame.init()
         pygame.font.init()
         self._clock = pygame.time.Clock()
@@ -31,42 +46,61 @@ class Visualizer:
 
         logging.info("Visualizer initialized.")
 
-    @staticmethod
-    def visualize_semantic_segmentation(image, palette=None):
+    def visualize_semantic_segmentation(self, image, path_palette=None):
         """Visualize a semantic segmentation image using a color palette.
 
         Args:
             image (np.ndarray): The semantic segmentation image. The image should be a 3D numpy array with shape (H, W, 3). Only the first channel is used for visualization with integer values representing the class labels.
-            palette (np.ndarray): The color palette to use for visualization.
+            path_palette (str): The path to the color palette to use for visualization.
 
             Return:
                 pygame.Surface: The surface object containing the visualization.
         """
-        palette = CITYSCAPE_PALETTE if palette is None else palette
+        if path_palette is not None:
+            palette = np.array(
+                OmegaConf.load(get_absolute_path(path_palette)).color_map
+            )
+        else:
+            palette = self.semantic_palette
         rgb_image = palette[image[:, :, 0]]
 
         return rgb_image
 
-    @staticmethod
-    def visualize_semantic_segmentation_binary(image, palette=None):
+    def visualize_semantic_segmentation_binary(self, image, path_palette=None):
         """Visualize a semantic segmentation image to four binary layers.
 
         Args:
             image (np.ndarray): The semantic segmentation image. The image should be a 3D numpy array with shape (H, W, 3). Only the first channel is used for visualization with integer values representing the class labels.
-            palette (np.ndarray): The color palette to use for visualization.
+            path_palette (str): The path to the color palette to use for visualization.
 
         Returns:
             List[pygame.Surface]:
         """
-        palette = BINARY_PALETTE if palette is None else palette
-        binary_images = np.zeros((image.shape[0] * 2, image.shape[1] * 2))
-        binary_image_stack = palette[image[:, :, 0]] * 255
-        binary_images[: image.shape[0], : image.shape[1]] = binary_image_stack[:, :, 0]
-        binary_images[: image.shape[0], image.shape[1] :] = binary_image_stack[:, :, 1]
-        binary_images[image.shape[0] :, : image.shape[1]] = binary_image_stack[:, :, 2]
-        binary_images[image.shape[0] :, image.shape[1] :] = binary_image_stack[:, :, 3]
+        if path_palette is not None:
+            palette = np.array(
+                OmegaConf.load(get_absolute_path(path_palette)).color_map
+            )
+        else:
+            palette = self.binary_palette
 
-        return binary_images
+        n_binary = len(palette[0])
+        assert n_binary < 8, "The number of binary layers should be less than 8."
+
+        binary_images = palette[image[:, :, 0]] * 255
+
+        if n_binary <= 4:
+            binary_image = np.zeros((image.shape[0] * 2, image.shape[1] * 2))
+            for i in range(n_binary):
+                binary_image[
+                    image.shape[0] * (i // 2) : image.shape[0] * (i // 2 + 1),
+                    image.shape[1] * (i % 2) : image.shape[1] * (i % 2 + 1),
+                ] = binary_images[:, :, i]
+        else:
+            binary_image = np.zeros((image.shape[0], image.shape[1]))
+            for i in range(n_binary):
+                binary_image += binary_images[:, :, i] * (2**i)
+
+        return binary_image
 
     @staticmethod
     def visualize_lidar(lidar_points, size=500) -> np.ndarray:
@@ -123,15 +157,20 @@ class Visualizer:
             if visualizer_config["render_method"] == "camera":
                 image = raw_data[sensor_id][1][:, :, -2::-1]
                 surface = pygame.surfarray.make_surface(image.swapaxes(0, 1))
-                # pygame.image.save(surface, f"{sensor_id}_{self._cnt}.png")
                 surface = self._get_scaled_surface(surface, visualizer_config["scale"])
+
             elif visualizer_config["render_method"] == "semantic_segmentation":
                 image = raw_data[sensor_id][1][:, :, -2::-1]
-                # image = self.visualize_semantic_segmentation(image)
+                image = self.visualize_semantic_segmentation(image)
+                surface = pygame.surfarray.make_surface(image.swapaxes(0, 1))
+                surface = self._get_scaled_surface(surface, visualizer_config["scale"])
+
+            elif visualizer_config["render_method"] == "semantic_segmentation_binary":
+                image = raw_data[sensor_id][1][:, :, -2::-1]
                 image = self.visualize_semantic_segmentation_binary(image)
                 surface = pygame.surfarray.make_surface(image.swapaxes(0, 1))
-                # pygame.image.save(surface, f"{sensor_id}_{self._cnt}.png")
                 surface = self._get_scaled_surface(surface, visualizer_config["scale"])
+
             elif visualizer_config["render_method"] == "lidar":
                 lidar = raw_data[sensor_id][1]
                 image = self.visualize_lidar(
@@ -142,7 +181,6 @@ class Visualizer:
                     ),
                 )
                 surface = pygame.surfarray.make_surface(image.swapaxes(0, 1))
-                # pygame.image.save(surface, f"{sensor_id}_{self._cnt}.png")
 
             self._surface.blit(
                 surface,

@@ -14,7 +14,7 @@ from leaderboard_custom.scenarios.cheater import Cheater
 
 
 def get_route_polygon(planner, max_distance, offset=0.0) -> Polygon:
-    list_points = []
+    point_list = []
 
     ego_vehicle = CarlaDataProvider.get_hero_actor()
     ego_transform = ego_vehicle.get_transform()
@@ -34,7 +34,7 @@ def get_route_polygon(planner, max_distance, offset=0.0) -> Polygon:
     pt1 = ego_location + right_location
     pt2 = ego_location + left_location
 
-    list_points.append([[pt1.x, pt1.y, pt1.z], [pt2.x, pt2.y, pt2.z]])
+    point_list.append([[pt1.x, pt1.y, pt1.z], [pt2.x, pt2.y, pt2.z]])
 
     for waypoint, _ in planner.get_plan():
         if ego_location.distance(waypoint.transform.location) > max_distance:
@@ -43,13 +43,13 @@ def get_route_polygon(planner, max_distance, offset=0.0) -> Polygon:
         right_vector = waypoint.transform.get_right_vector()
         pt1 = waypoint.transform.location + right_location
         pt2 = waypoint.transform.location + left_location
-        list_points.append([[pt1.x, pt1.y, pt1.z], [pt2.x, pt2.y, pt2.z]])
+        point_list.append([[pt1.x, pt1.y, pt1.z], [pt2.x, pt2.y, pt2.z]])
 
     # Two points don't create a polygon, nothing to check
-    if len(list_points) < 2:
+    if len(point_list) < 2:
         return None
 
-    return Polygon(list_points)
+    return Polygon(point_list)
 
 
 def sort_scenarios_by_distance(ego_location):

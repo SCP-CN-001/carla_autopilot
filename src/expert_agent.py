@@ -137,6 +137,7 @@ class ExpertAgent(AutonomousAgent):
         self.world = CarlaDataProvider.get_world()
         self.world_map = CarlaDataProvider.get_map()
         self.ego_vehicle = CarlaDataProvider.get_hero_actor()
+        self.control = None
 
         # Check if the vehicle starts from a parking spot
         distance_road = self.origin_global_plan_world_coord[0][0].location.distance(
@@ -214,6 +215,13 @@ class ExpertAgent(AutonomousAgent):
         self.remaining_route_original = None  # Remaining original route
         self.cleared_stop_sign = False
 
+        self.traffic_light_bbox = (
+            {}
+        )  # The bounding box of the traffic light that may affect the ego vehicle
+        self.stop_sign_bbox = (
+            {}
+        )  # The bounding box of the stop sign that may affect the ego vehicle
+
         self.vehicle_lights = (
             carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
         )
@@ -285,9 +293,12 @@ class ExpertAgent(AutonomousAgent):
             carla.VehicleControl: The control commands for the current step.
         """
         self.step += 1
+        self.traffic_light_bbox = {}
+        self.stop_sign_bbox = {}
 
         # Get the control commands and driving data for the current step
         control = self.get_control(input_data)
+        self.control = control  # for visiting the control command anywhere in the class
 
         return control
 
@@ -1234,9 +1245,17 @@ class ExpertAgent(AutonomousAgent):
                     pitch=global_rot.pitch, yaw=global_rot.yaw, roll=global_rot.roll
                 )
 
-                affects_ego = (
+                affect_ego = (
                     next_traffic_light is not None and light.id == next_traffic_light.id
                 )
+
+                # DEBUG
+                if affect_ego:
+                    # if affect_ego and light.state in [
+                    #     carla.libcarla.TrafficLightState.Red,
+                    #     carla.libcarla.TrafficLightState.Yellow,
+                    # ]:
+                    self.traffic_light_bbox[light.id] = [bbox, wp.transform.location]
 
                 if self.debug:
                     if light.state == carla.libcarla.TrafficLightState.Red:
@@ -1321,14 +1340,17 @@ class ExpertAgent(AutonomousAgent):
                 roll=rotation_stop_sign.roll,
             )
 
-            affects_ego = (
+            affect_ego = (
                 next_stop_sign is not None
                 and next_stop_sign.id == stop_sign.id
                 and not self.cleared_stop_sign
             )
 
+            if affect_ego:
+                self.stop_sign_bbox[stop_sign.id] = bbox_stop_sign
+
             if self.debug:
-                color = carla.Color(0, 1, 0) if affects_ego else carla.Color(1, 0, 0)
+                color = carla.Color(0, 1, 0) if affect_ego else carla.Color(1, 0, 0)
                 self.world.debug.draw_box(
                     box=bbox_stop_sign,
                     rotation=bbox_stop_sign.rotation,

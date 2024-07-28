@@ -32,10 +32,10 @@ class StopSignDetector:
         self.world_map = carla_world.get_map()
 
         all_actors = carla_world.get_actors()
-        self.list_stop_signs = []
+        self.stop_sign_list = []
         for actor in all_actors:
             if "traffic.stop" in actor.type_id:
-                self.list_stop_signs.append(actor)
+                self.stop_sign_list.append(actor)
 
         self.target_stop_sign = None
         self.is_stopped = False
@@ -60,7 +60,7 @@ class StopSignDetector:
         )
 
         # Get the list of waypoints ahead of the vehicle
-        list_locations = [vehicle_location]
+        location_list = [vehicle_location]
         wp = self.world_map.get_waypoint(vehicle_location)
         for _ in range(multi_step):
             next_wps = wp.next(self.waypoint_step)
@@ -70,7 +70,7 @@ class StopSignDetector:
             if not wp:
                 break
 
-            list_locations.append(wp.transform.location)
+            location_list.append(wp.transform.location)
 
         # Check if the any of the actor wps is inside the stop's bounding box.
         # Using more than one waypoint removes issues with small trigger volumes and backwards movement
@@ -78,7 +78,7 @@ class StopSignDetector:
         stop_sign_extent.x = max(0.5, stop_sign_extent.x)
         stop_sign_extent.y = max(0.5, stop_sign_extent.y)
 
-        for location in list_locations:
+        for location in location_list:
             if is_point_in_bbox(location, trigger_volume_transformed, stop_sign_extent):
                 affected = True
                 break
@@ -97,7 +97,7 @@ class StopSignDetector:
         dot_vehicle_wp = dot_product(wp_direction, vehicle_direction)
 
         if dot_vehicle_wp > 0:  # Ignore all when going in a wrong lane
-            for stop_sign in self.list_stop_signs:
+            for stop_sign in self.stop_sign_list:
                 if self.is_near_stop_sign(vehicle, stop_sign):
                     # this stop sign is affecting the vehicle
                     target_stop_sign = stop_sign

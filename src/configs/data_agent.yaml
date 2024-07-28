@@ -1,19 +1,29 @@
 path_agent_configs: src/configs/expert_agent.yaml
 path_sensor_configs: src/configs/sensors.yaml
 path_visualizer_configs: src/configs/visualize_binary.yaml
-path_palette_map: src/configs/binary_palette.yaml
-
-visualize: true
-sensor_ids: [gnss, camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
 
 # Wandb
 project: ramble
 name: data_collection
 route: routes_training
-route_subset: 0
-
-# Data files
-path_save: data/expert_data/route_${route_subset}
-save_control_command: true
+route_subset: 2
 save_control_command_to_wandb: true
 save_runtime_to_wandb: true
+
+# Sensor configuration
+sensor_ids: [gnss, camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
+
+# Data saving configuration
+# Describe the way to parse the semantic segmentation data in bird-eye view
+path_save: data/expert_data/route_${route_subset}
+save_semantic_bev:
+  sensor_id: semantic_bev
+  binary: true
+  path_save: [roadline, drivable, static, dynamic]
+  path_palette: src/configs/binary_palette.yaml
+# Control whether to save the route line and the bounding box for red light and stop signs in a bev binary semantic map
+save_route: true
+save_control_command: true
+
+# Decide whether to visualize the data
+visualize: false

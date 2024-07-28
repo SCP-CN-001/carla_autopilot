@@ -180,6 +180,24 @@ def get_actor_bbox(
     return result
 
 
+def get_polygon_shape(bbox: carla.BoundingBox):
+    diff_x = bbox.rotation.get_forward_vector() * bbox.extent.x
+    diff_y = bbox.rotation.get_right_vector() * bbox.extent.y
+
+    pt1 = bbox.location + diff_x + diff_y
+    pt2 = bbox.location + diff_x - diff_y
+    pt3 = bbox.location - diff_x - diff_y
+    pt4 = bbox.location - diff_x + diff_y
+
+    polygon_shape = [
+        [pt1.x, pt1.y],
+        [pt2.x, pt2.y],
+        [pt3.x, pt3.y],
+        [pt4.x, pt4.y],
+    ]
+    return polygon_shape
+
+
 def get_separating_plane(
     relative_position: carla.Vector3D,
     plane_normal: carla.Vector3D,
