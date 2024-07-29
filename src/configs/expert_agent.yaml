@@ -52,9 +52,9 @@ speed_overtake_vehicle_opens_door_two_ways: ${eval:"40.0/3.6"}
 # Distance of obstacles (in meters) in which we will check for collisions
 detection_radius: 50.0
 # Distance of traffic lights considered relevant (in meters)
-light_radius: 50.0
+light_radius: 20.0
 # Distance of stop signs considered relevant (in meters)
-stop_sign_radius: 50.0
+stop_sign_radius: 20.0
 
 # Safety distance to be added to emergency braking distance
 safety_distance_addition_to_braking_distance: 10

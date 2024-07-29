@@ -298,7 +298,7 @@ class DataAgent(ExpertAgent):
             [10 * scale, self.route_image_height / 2]
         )
 
-        pygame.draw.aalines(self.route_image, (255, 255, 255), False, route_points, 2)
+        pygame.draw.aalines(self.route_image, (255, 255, 255), False, route_points, 5)
 
         for loc in self.traffic_light_loc:
             transformed_wp = get_transform_2D(
