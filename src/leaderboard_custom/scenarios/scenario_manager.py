@@ -20,6 +20,7 @@ import time
 
 import carla
 import py_trees
+import wandb
 from leaderboard.envs.sensor_interface import SensorReceivedNoData
 from leaderboard.utils.result_writer import ResultOutputProvider
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
@@ -166,6 +167,11 @@ class ScenarioManager:
 
         while self._running:
             self._tick_scenario()
+            if wandb.run is not None:
+                criteria_data = {}
+                for criterion in self.scenario.get_criteria():
+                    criteria_data[criterion.name] = criterion.actual_value
+                wandb.run.log(criteria_data)
 
     def _tick_scenario(self):
         """

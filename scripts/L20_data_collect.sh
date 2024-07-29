@@ -28,12 +28,14 @@ export CHALLENGE_TRACK_CODENAME=MAP
 export TEAM_AGENT=${WORKSPACE}/src/data_agent.py
 export TEAM_CONFIG=${WORKSPACE}/src/configs/data_agent.yaml
 export TIME_STAMP=$(date +"%s")
-export CHECKPOINT=${WORKSPACE}/logs/expert_control/route_${ROUTES_SUBSET}_${TIME_STAMP}.json
+export CHECKPOINT=${WORKSPACE}/data/expert_data/route_${ROUTES_SUBSET}/log_${TIME_STAMP}.json
+export PROFILER_LOG=${WORKSPACE}/data/expert_data/route_${ROUTES_SUBSET}/program.prof
+export PYTHON_FILE=${WORKSPACE}/src/leaderboard_custom/leaderboard_evaluator.py
 
 export RESUME=1
 export TM_SEED=0
 
-python -m cProfile -o ${WORKSPACE}/logs/program.prof ${WORKSPACE}/src/leaderboard_custom/leaderboard_evaluator.py \
+python -m cProfile -o ${PROFILER_LOG} ${PYTHON_FILE} \
     --port=${PORT} \
     --traffic-manager-port=${TM_PORT} \
     --routes=${ROUTES} \

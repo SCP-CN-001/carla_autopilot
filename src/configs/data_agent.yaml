@@ -6,7 +6,7 @@ path_visualizer_configs: src/configs/visualize_binary.yaml
 project: ramble
 name: data_collection
 route: routes_training
-route_subset: 2
+route_subset: 0
 save_control_command_to_wandb: true
 save_runtime_to_wandb: true
 
@@ -23,6 +23,8 @@ save_semantic_bev:
   path_palette: src/configs/binary_palette.yaml
 # Control whether to save the route line and the bounding box for red light and stop signs in a bev binary semantic map
 save_route: true
+route_image_width: 640
+route_image_height: 480
 save_control_command: true
 
 # Decide whether to visualize the data

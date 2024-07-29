@@ -10,6 +10,7 @@ import logging
 import os
 import threading
 
+import carla
 import cv2
 import numpy as np
 import open3d as o3d
@@ -20,7 +21,7 @@ from srunner.scenariomanager.timer import GameTime
 
 from src.common_carla.bounding_box import get_polygon_shape
 from src.expert_agent import ExpertAgent
-from src.utils.common import get_absolute_path
+from src.utils.common import get_absolute_path, get_random_weather
 from src.utils.geometry import get_transform_2D
 from src.utils.visualizer import Visualizer
 
@@ -87,6 +88,12 @@ class DataAgent(ExpertAgent):
 
         super().setup(get_absolute_path(self.path_agent_configs))
 
+        # Set a random weather
+        weather_params = get_random_weather(from_file=True)
+        weather = carla.WeatherParameters(**weather_params)
+        self.world.set_weather(weather)
+        self.world.tick()
+
         self.sensor_configs = OmegaConf.load(
             get_absolute_path(self.path_sensor_configs)
         )
@@ -133,8 +140,12 @@ class DataAgent(ExpertAgent):
             if not os.path.exists(f"{self.path_save}/route"):
                 os.makedirs(f"{self.path_save}/route")
 
-            self.wps_list = []
-            self.route_image = pygame.Surface((600, 400))
+            self.file_route_points = open(
+                get_absolute_path(f"{self.path_save}/route_points.csv"), "w"
+            )
+            self.route_image = pygame.Surface(
+                (self.route_image_width, self.route_image_height)
+            )
 
         self.lidar_id_list = []
         self.lidar_cache = {}
@@ -269,7 +280,7 @@ class DataAgent(ExpertAgent):
         self.route_image.fill((0, 0, 0))
 
         route_points = []
-        for route_point in self.remaining_route_original[:40]:
+        for route_point in self.remaining_route_original[:50]:
             route_points.append([route_point[0], route_point[1]])
 
         route_points = get_transform_2D(
@@ -278,29 +289,25 @@ class DataAgent(ExpertAgent):
             np.deg2rad(ego_transform.rotation.yaw),
         )
 
-        # Move the center of ego vehicle to (100, 200) in the surface.
-        route_points = route_points * 10 + np.array([100, 200])
+        str_route_points = ",".join(f"[{x[0]}, {x[1]}]" for x in route_points)
+        self.file_route_points.write(str_route_points + "\n")
+
+        # Move the center of ego vehicle
+        scale = self.route_image_width / 60
+        route_points = route_points * scale + np.array(
+            [10 * scale, self.route_image_height / 2]
+        )
 
         pygame.draw.aalines(self.route_image, (255, 255, 255), False, route_points, 2)
 
-        for bbox, wp_location in self.traffic_light_bbox.values():
-            bbox_shape = get_polygon_shape(bbox)
-            print(bbox.location, ego_transform.location)
-            print(bbox_shape)
-            transformed_bbox_shape = get_transform_2D(
-                np.array(bbox_shape),
-                np.array([ego_location.x, ego_location.y]),
-                np.deg2rad(ego_transform.rotation.yaw),
-            )
-            print(transformed_bbox_shape)
+        for loc in self.traffic_light_loc:
             transformed_wp = get_transform_2D(
-                np.array([wp_location.x, wp_location.y]),
+                np.array([loc.x, loc.y]),
                 np.array([ego_location.x, ego_location.y]),
                 np.deg2rad(ego_transform.rotation.yaw),
             )
-            print(transformed_wp)
-            pygame.draw.polygon(self.route_image, (0, 0, 0), transformed_bbox_shape)
-            pygame.draw.circle(self.route_image, 5, transformed_wp, (0, 0, 0))
+            transformed_wp = transformed_wp * 10 + np.array([100, 200])
+            pygame.draw.circle(self.route_image, (255, 255, 255), transformed_wp, 10)
 
         for bbox in self.stop_sign_bbox:
             bbox_shape = get_polygon_shape(bbox)
@@ -309,7 +316,10 @@ class DataAgent(ExpertAgent):
                 np.array([ego_location.x, ego_location.y]),
                 np.deg2rad(ego_transform.rotation.yaw),
             )
-            pygame.draw.polygon(self.route_image, (0, 0, 0), transformed_bbox_shape)
+            transformed_bbox_shape = transformed_bbox_shape * 10 + np.array([100, 200])
+            pygame.draw.polygon(
+                self.route_image, (255, 255, 255), transformed_bbox_shape
+            )
 
         pygame.image.save(
             self.route_image, f"{self.path_save}/route/frame_{self.step:06d}.png"
@@ -360,6 +370,8 @@ class DataAgent(ExpertAgent):
                 )
             wandb.finish()
 
+        self.file_route_points.close()
+
         if self.save_control_command:
             records = {"records": []}
             len_record = len(self.control_commands["steer"])
@@ -381,4 +393,4 @@ class DataAgent(ExpertAgent):
                 )
 
             with open(os.path.join(self.path_save, "log.json"), "w") as f:
-                json.dump(records, f)
+                json.dump(records, f, indent=4)

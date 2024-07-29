@@ -110,7 +110,10 @@ class Visualizer:
         """
         # Extract X, Y, Z coordinates and intensity values
         points_xyz = lidar_points[:, :3]
-        intensity = lidar_points[:, 3]
+        if lidar_points.shape[1] == 4:
+            intensity = lidar_points[:, 3]
+        else:
+            intensity = np.ones(points_xyz.shape[0])
 
         # Intensity scaling factor
         intensity_scale = 255.0  # Adjust this value to control the brightness

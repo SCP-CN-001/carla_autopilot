@@ -1,0 +1,77 @@
+path_data: data/expert_data/route_2
+path_video: data/expert_data/route_2/all_sensors.mp4
+frame_range: [1000, 3000]
+frame_rate: 10
+width: 1000
+height: 510
+layout:
+  camera_front:
+    folder_name: camera_front
+    suffix: png
+    width: 480
+    height: 360
+    loc_x: 160
+    loc_y: 0
+  camera_left:
+    folder_name: camera_left
+    suffix: png
+    width: 180
+    height: 120
+    loc_x: 0
+    loc_y: 0
+  camera_rear:
+    folder_name: camera_rear
+    suffix: png
+    width: 180
+    height: 120
+    scale: 0.25
+    loc_x: 0
+    loc_y: 120
+  camera_right:
+    folder_name: camera_right
+    suffix: png
+    width: 180
+    height: 120
+    loc_x: 0
+    loc_y: 240
+  lidar:
+    folder_name: lidar
+    suffix: ply
+    size: 360
+    loc_x: 640
+    loc_y: 0
+  drivable:
+    folder_name: semantic_bev/drivable
+    suffix: png
+    width: 200
+    height: 150
+    loc_x: 0
+    loc_y: 360
+  roadline:
+    folder_name: semantic_bev/roadline
+    suffix: png
+    width: 200
+    height: 150
+    loc_x: 200
+    loc_y: 360
+  dynamic:
+    folder_name: semantic_bev/dynamic
+    suffix: png
+    width: 200
+    height: 150
+    loc_x: 400
+    loc_y: 360
+  static:
+    folder_name: semantic_bev/static
+    suffix: png
+    width: 200
+    height: 150
+    loc_x: 600
+    loc_y: 360
+  route:
+    folder_name: route
+    suffix: png
+    width: 200
+    height: 150
+    loc_x: 800
+    loc_y: 360
