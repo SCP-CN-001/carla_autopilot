@@ -3,7 +3,7 @@ path_sensor_configs: src/configs/sensors.yaml
 path_visualizer_configs: src/configs/visualize_binary.yaml
 
 # Wandb
-project: ramble
+project: autopilot
 name: data_collection
 route: routes_training
 route_subset: 0

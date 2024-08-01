@@ -1,3 +1,9 @@
+##!/usr/bin/env python3
+# @File: common.py
+# @Description: Some commonly used functions.
+# @CreatedTime: 2024/08/01
+# @Author: Yueyuan Li
+
 import os
 import random
 

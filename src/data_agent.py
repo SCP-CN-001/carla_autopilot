@@ -150,6 +150,8 @@ class DataAgent(ExpertAgent):
         self.lidar_id_list = []
         self.lidar_cache = {}
         for sensor_id, sensor_config in self.sensor_configs.items():
+            if sensor_id not in self.sensor_ids:
+                continue
             if sensor_config["blueprint"] == "sensor.lidar.ray_cast":
                 self.lidar_id_list.append(sensor_id)
                 self.lidar_cache[sensor_id] = None
@@ -167,11 +169,17 @@ class DataAgent(ExpertAgent):
         else:
             logging.info("This simulation is not in visualize mode.")
 
+        self.route_counter = 0
         if self.save_runtime_to_wandb:
+            if self.route_subset == "all":
+                route_subset = self.route_counter
+                self.route_counter += 1
+            else:
+                route_subset = self.route_subset
             weather = self.world.get_weather()
             wandb.init(
                 project=self.project,
-                name=f"{self.name}_route_{self.route_subset}",
+                name=f"{self.name}_route_{route_subset}",
                 config={
                     "map": self.world_map.name,
                     "route": self.route,
@@ -370,7 +378,8 @@ class DataAgent(ExpertAgent):
                 )
             wandb.finish()
 
-        self.file_route_points.close()
+        if self.save_route:
+            self.file_route_points.close()
 
         if self.save_control_command:
             records = {"records": []}
