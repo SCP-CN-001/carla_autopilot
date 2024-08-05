@@ -127,6 +127,11 @@ def get_before_traffic_light_waypoints(traffic_light, carla_map):
         eu_wps.append(wpx)
         next_distance_to_light = distance_to_light + 1.0
         while not wpx.is_intersection:
+            # Fix for some traffic lights that are not properly placed
+            if len(wpx.next(0.5)) == 0:
+                print("Traffic light without next waypoint")
+                break
+
             next_wp = wpx.next(0.5)[0]
             next_distance_to_light = base_loc.distance(next_wp.transform.location)
             if (

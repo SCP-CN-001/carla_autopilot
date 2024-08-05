@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import threading
+import time
 
 import carla
 import cv2
@@ -55,7 +56,9 @@ class DataAgent(ExpertAgent):
             )
         )
 
+        t1 = time.time()
         control = self.run_step(input_data)
+        t2 = time.time()
         control.manual_gear_shift = False
 
         if self.save_control_command_to_wandb and wandb.run is not None:
@@ -75,6 +78,7 @@ class DataAgent(ExpertAgent):
                     "sim_ratio": round(sim_ratio, 3),
                     "target_speed": self.target_speed,
                     "ego_speed": self.ego_vehicle.get_velocity().length(),
+                    "step_time": round(t2 - t1, 3),
                 }
             )
 
