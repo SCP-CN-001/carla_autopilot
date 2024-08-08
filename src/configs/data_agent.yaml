@@ -11,7 +11,7 @@ save_control_command_to_wandb: true
 save_runtime_to_wandb: true
 
 # Sensor configuration
-sensor_ids: [gnss, camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
+sensor_ids: [camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
 
 # Data saving configuration
 # Describe the way to parse the semantic segmentation data in bird-eye view
@@ -25,7 +25,6 @@ save_semantic_bev:
 save_route: true
 route_image_width: 640
 route_image_height: 480
-save_control_command: true
 
 # Decide whether to visualize the data
 visualize: false

@@ -258,6 +258,17 @@ class ExpertAgent(AutonomousAgent):
                 "id": "imu",
             },
             {"type": "sensor.speedometer", "reading_frequency": 20, "id": "speed"},
+            {
+                "type": "sensor.other.gnss",
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "roll": 0.0,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "sensor_tick": 0.01,
+                "id": "gps",
+            },
         ]
 
         return sensors

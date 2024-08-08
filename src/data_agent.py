@@ -103,16 +103,37 @@ class DataAgent(ExpertAgent):
         )
         self.sensor_configs = OmegaConf.to_container(self.sensor_configs, resolve=True)
 
-        if self.save_control_command:
-            self.control_commands = {
-                "steer": [],
-                "throttle": [],
-                "brake": [],
-                "hand_brake": [],
-                "reverse": [],
-                "manual_gear_shift": [],
-                "gear": [],
-            }
+        self.control_commands = {
+            "steer": [],
+            "throttle": [],
+            "brake": [],
+            "hand_brake": [],
+            "reverse": [],
+            "manual_gear_shift": [],
+            "gear": [],
+        }
+        self.states = {
+            "acceleration": {
+                "value": [],
+                "x": [],
+                "y": [],
+                "z": [],
+            },
+            "transform": {
+                "x": [],
+                "y": [],
+                "z": [],
+                "yaw": [],
+                "pitch": [],
+                "roll": [],
+            },
+            "velocity": {
+                "value": [],
+                "x": [],
+                "y": [],
+                "z": [],
+            },
+        }
 
         # save data
         self.path_save = get_absolute_path(self.path_save)
@@ -217,6 +238,29 @@ class DataAgent(ExpertAgent):
         self.control_commands["reverse"].append(control.reverse)
         self.control_commands["manual_gear_shift"].append(control.manual_gear_shift)
         self.control_commands["gear"].append(control.gear)
+
+    def cache_state(self):
+        ego_location = self.ego_vehicle.get_location()
+        ego_transform = self.ego_vehicle.get_transform()
+        ego_velocity = self.ego_vehicle.get_velocity()
+        ego_acceleration = self.ego_vehicle.get_acceleration()
+
+        self.states["acceleration"]["value"].append(ego_acceleration.length())
+        self.states["acceleration"]["x"].append(ego_acceleration.x)
+        self.states["acceleration"]["y"].append(ego_acceleration.y)
+        self.states["acceleration"]["z"].append(ego_acceleration.z)
+
+        self.states["transform"]["x"].append(ego_location.x)
+        self.states["transform"]["y"].append(ego_location.y)
+        self.states["transform"]["z"].append(ego_location.z)
+        self.states["transform"]["yaw"].append(ego_transform.rotation.yaw)
+        self.states["transform"]["pitch"].append(ego_transform.rotation.pitch)
+        self.states["transform"]["roll"].append(ego_transform.rotation.roll)
+
+        self.states["velocity"]["value"].append(ego_velocity.length())
+        self.states["velocity"]["x"].append(ego_velocity.x)
+        self.states["velocity"]["y"].append(ego_velocity.y)
+        self.states["velocity"]["z"].append(ego_velocity.z)
 
     def save_image(self, image, folder_name):
         path_file = f"{self.path_save}/{folder_name}/frame_{self.step:06d}.png"
@@ -352,12 +396,13 @@ class DataAgent(ExpertAgent):
         if self.visualize:
             self.visualizer.update(input_data)
 
-        if self.save_control_command:
-            if self.frame_rate_carla == 10:
+        if self.frame_rate_carla == 10:
+            self.cache_state()
+            self.cache_control_command(self.control)
+        elif self.frame_rate_carla == 20:
+            if self.step % 2 == 0:
+                self.cache_state()
                 self.cache_control_command(self.control)
-            elif self.frame_rate_carla == 20:
-                if self.step % 2 == 0:
-                    self.cache_control_command(self.control)
 
         return self.control
 
@@ -385,25 +430,46 @@ class DataAgent(ExpertAgent):
         if self.save_route:
             self.file_route_points.close()
 
-        if self.save_control_command:
-            records = {"records": []}
-            len_record = len(self.control_commands["steer"])
-            for i in range(len_record):
-                records["records"].append(
-                    {
-                        "control": {
-                            "steer": self.control_commands["steer"][i],
-                            "throttle": self.control_commands["throttle"][i],
-                            "brake": self.control_commands["brake"][i],
-                            "hand_brake": self.control_commands["hand_brake"][i],
-                            "reverse": self.control_commands["reverse"][i],
-                            "manual_gear_shift": self.control_commands[
-                                "manual_gear_shift"
-                            ][i],
-                            "gear": self.control_commands["gear"][i],
-                        }
-                    }
-                )
+        records = {"records": []}
+        len_record = len(self.control_commands["steer"])
+        for i in range(len_record):
+            records["records"].append(
+                {
+                    "control": {
+                        "steer": self.control_commands["steer"][i],
+                        "throttle": self.control_commands["throttle"][i],
+                        "brake": self.control_commands["brake"][i],
+                        "hand_brake": self.control_commands["hand_brake"][i],
+                        "reverse": self.control_commands["reverse"][i],
+                        "manual_gear_shift": self.control_commands["manual_gear_shift"][
+                            i
+                        ],
+                        "gear": self.control_commands["gear"][i],
+                    },
+                    "state": {
+                        "acceleration": {
+                            "value": self.states["acceleration"]["value"][i],
+                            "x": self.states["acceleration"]["x"][i],
+                            "y": self.states["acceleration"]["y"][i],
+                            "z": self.states["acceleration"]["z"][i],
+                        },
+                        "transform": {
+                            "x": self.states["transform"]["x"][i],
+                            "y": self.states["transform"]["y"][i],
+                            "z": self.states["transform"]["z"][i],
+                            "yaw": self.states["transform"]["yaw"][i],
+                            "pitch": self.states["transform"]["pitch"][i],
+                            "roll": self.states["transform"]["roll"][i],
+                        },
+                        "velocity": {
+                            "value": self.states["velocity"]["value"][i],
+                            "x": self.states["velocity"]["x"][i],
+                            "y": self.states["velocity"]["y"][i],
+                            "z": self.states["velocity"]["z"][i],
+                        },
+                    },
+                }
+            )
 
             with open(os.path.join(self.path_save, "log.json"), "w") as f:
                 json.dump(records, f, indent=4)
