@@ -9,15 +9,18 @@ route: routes_training
 route_subset: 0
 save_control_command_to_wandb: true
 save_runtime_to_wandb: true
+log_format: json
 
 # Sensor configuration
 sensor_ids: [camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
+# sensor_ids: [camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev_low, semantic_bev_high]
 
 # Data saving configuration
 # Describe the way to parse the semantic segmentation data in bird-eye view
-path_save: data/expert_data/route_${route_subset}
+path_save: /mnt/pool/rowena/expert_data/route_${route_subset}
 save_semantic_bev:
-  sensor_id: semantic_bev
+  # sensor_id: [semantic_bev_low, semantic_bev_high]
+  sensor_id: [semantic_bev]
   binary: true
   path_save: [roadline, drivable, static, dynamic]
   path_palette: src/configs/binary_palette.yaml
@@ -25,6 +28,8 @@ save_semantic_bev:
 save_route: true
 route_image_width: 640
 route_image_height: 480
+# Detection range: front 30m, rear 10m, left 15m, right 15m
+route_image_width_meter: 40
 
 # Decide whether to visualize the data
 visualize: false

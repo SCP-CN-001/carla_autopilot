@@ -153,13 +153,15 @@ class DataAgent(ExpertAgent):
             )
 
             for path_save in self.save_semantic_bev["path_save"]:
-                sensor_id = self.save_semantic_bev["sensor_id"]
-                if not os.path.exists(
-                    get_absolute_path(f"{self.path_save}/{sensor_id}/{path_save}")
-                ):
-                    os.makedirs(
+                for sensor_id in self.save_semantic_bev["sensor_id"]:
+                    if not os.path.exists(
                         get_absolute_path(f"{self.path_save}/{sensor_id}/{path_save}")
-                    )
+                    ):
+                        os.makedirs(
+                            get_absolute_path(
+                                f"{self.path_save}/{sensor_id}/{path_save}"
+                            )
+                        )
 
         if self.save_route:
             if not os.path.exists(f"{self.path_save}/route"):
@@ -349,12 +351,12 @@ class DataAgent(ExpertAgent):
         self.file_route_points.write(str_route_points + "\n")
 
         # Move the center of ego vehicle
-        scale = self.route_image_width / 60
+        scale = self.route_image_width / self.route_image_width_meter
         route_points = route_points * scale + np.array(
             [10 * scale, self.route_image_height / 2]
         )
 
-        pygame.draw.aalines(self.route_image, (255, 255, 255), False, route_points, 5)
+        pygame.draw.lines(self.route_image, (255, 255, 255), False, route_points, 3)
 
         for loc in self.traffic_light_loc:
             transformed_wp = get_transform_2D(
@@ -391,7 +393,11 @@ class DataAgent(ExpertAgent):
         thread_2.join()
 
         if self.save_route:
-            self.save_route_data()
+            if self.frame_rate_carla == 10:
+                self.save_route_data()
+            elif self.frame_rate_carla == 20:
+                if self.step % 2 == 0:
+                    self.save_route_data()
 
         if self.visualize:
             self.visualizer.update(input_data)
@@ -430,6 +436,7 @@ class DataAgent(ExpertAgent):
         if self.save_route:
             self.file_route_points.close()
 
+        # if self.log_format == "json":
         records = {"records": []}
         len_record = len(self.control_commands["steer"])
         for i in range(len_record):
@@ -473,3 +480,12 @@ class DataAgent(ExpertAgent):
 
             with open(os.path.join(self.path_save, "log.json"), "w") as f:
                 json.dump(records, f, indent=4)
+        # elif self.log_format == "csv":
+        with open(os.path.join(self.path_save, "log.csv"), "w") as f:
+            f.write(
+                "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z\n"
+            )
+            for i in range(len(self.control_commands["steer"])):
+                f.write(
+                    f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}\n"
+                )

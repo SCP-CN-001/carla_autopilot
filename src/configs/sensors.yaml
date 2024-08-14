@@ -198,10 +198,47 @@ semantic_bev:
   blueprint_attributes:
     image_size_x: 640
     image_size_y: 480
-    fov: 120
+    fov: 160
   x: 1.0
   y: 0.0
   z: 6.0
+  roll: 0.0
+  pitch: -90.0
+  yaw: -90.0
+  width: 640
+  height: 480
+  fov: 160
+
+
+semantic_bev_low:
+  id: semantic_bev_low
+  type: sensor.camera.semantic_segmentation
+  blueprint: sensor.camera.semantic_segmentation
+  blueprint_attributes:
+    image_size_x: 640
+    image_size_y: 480
+    fov: 120
+  x: 1.0
+  y: 0.0
+  z: 7.0
+  roll: 0.0
+  pitch: -90.0
+  yaw: -90.0
+  width: 640
+  height: 480
+  fov: 120
+
+semantic_bev_high:
+  id: semantic_bev_high
+  type: sensor.camera.semantic_segmentation
+  blueprint: sensor.camera.semantic_segmentation
+  blueprint_attributes:
+    image_size_x: 640
+    image_size_y: 480
+    fov: 120
+  x: 1.0
+  y: 0.0
+  z: 12.0
   roll: 0.0
   pitch: -90.0
   yaw: -90.0
