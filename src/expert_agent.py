@@ -27,7 +27,8 @@ from src.common_carla.route import (
 )
 from src.common_carla.traffic_light import get_before_traffic_light_waypoints
 from src.controllers import LateralPIDController, LongitudinalLinearRegressionController
-from src.leaderboard_custom.scenarios.cheater import Cheater
+
+# from src.leaderboard_custom.scenarios.cheater import Cheater
 from src.planners.privileged_route_planner import PrivilegedRoutePlanner
 from src.planners.route_planner import RoutePlanner
 from src.utils.geometry import get_angle_by_position, normalize_angle
@@ -498,23 +499,28 @@ class ExpertAgent(AutonomousAgent):
         ]  # [target_speed, type, id, distance]
 
         # Remove scenarios that ended with a scenario timeout
-        active_scenarios = Cheater.active_scenarios.copy()
+        # active_scenarios = Cheater.active_scenarios.copy()
+        active_scenarios = CarlaDataProvider.active_scenarios.copy()
         for i, (scenario_type, scenario_data) in enumerate(active_scenarios):
             first_actor, last_actor = scenario_data[:2]
             if not first_actor.is_alive or (
                 last_actor is not None and not last_actor.is_alive
             ):
-                Cheater.active_scenarios.remove(active_scenarios[i])
+                # Cheater.active_scenarios.remove(active_scenarios[i])
+                CarlaDataProvider.active_scenarios.remove(active_scenarios[i])
 
         # Only continue if there are some active scenarios available
-        if len(Cheater.active_scenarios) != 0:
+        # if len(Cheater.active_scenarios) != 0:
+        if len(CarlaDataProvider.active_scenarios) != 0:
             ego_location = self.ego_vehicle.get_location()
 
             # Sort the scenarios by distance if there is more than one active scenario
-            if len(Cheater.active_scenarios) != 1:
+            # if len(Cheater.active_scenarios) != 1:
+            if len(CarlaDataProvider.active_scenarios) != 1:
                 sort_scenarios_by_distance(ego_location)
 
-            scenario_type, scenario_data = Cheater.active_scenarios[0]
+            # scenario_type, scenario_data = Cheater.active_scenarios[0]
+            scenario_type, scenario_data = CarlaDataProvider.active_scenarios[0]
 
             if scenario_type == "InvadingTurn":
                 first_cone, last_cone, offset = scenario_data
@@ -525,7 +531,10 @@ class ExpertAgent(AutonomousAgent):
                     self.waypoint_planner.shift_route_for_invading_turn(
                         first_cone, last_cone, offset
                     )
-                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    # Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    CarlaDataProvider.active_scenarios = (
+                        CarlaDataProvider.active_scenarios[1:]
+                    )
 
             elif scenario_type in [
                 "Accident",
@@ -548,7 +557,10 @@ class ExpertAgent(AutonomousAgent):
                     _, _ = self.waypoint_planner.shift_route_around_actors(
                         first_actor, last_actor, direction, transition_length
                     )
-                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    # Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    CarlaDataProvider.active_scenarios = (
+                        CarlaDataProvider.active_scenarios[1:]
+                    )
 
             elif scenario_type in [
                 "AccidentTwoWays",
@@ -665,7 +677,10 @@ class ExpertAgent(AutonomousAgent):
                         self.waypoint_planner.route_index
                         >= to_index - self.distance_delete_scenario_in_two_ways
                     ):
-                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                        # Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                        CarlaDataProvider.active_scenarios = (
+                            CarlaDataProvider.active_scenarios[1:]
+                        )
                     target_speed = {
                         "AccidentTwoWays": self.speed_overtake,
                         "ConstructionObstacleTwoWays": self.speed_overtake,
@@ -761,7 +776,10 @@ class ExpertAgent(AutonomousAgent):
                 if path_clear:
                     # Check if the overtaking is done
                     if self.waypoint_planner.route_index >= to_index:
-                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                        # Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                        CarlaDataProvider.active_scenarios = (
+                            CarlaDataProvider.active_scenarios[1:]
+                        )
                     # Overtake with max. 50 km/h
                     target_speed, keep_driving = (
                         self.speed_overtake,
@@ -808,7 +826,10 @@ class ExpertAgent(AutonomousAgent):
                     scenario_data[4] = to_index
 
                 if self.waypoint_planner.route_index > to_index:
-                    Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    # Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                    CarlaDataProvider.active_scenarios = (
+                        CarlaDataProvider.active_scenarios[1:]
+                    )
 
             elif scenario_type == "YieldToEmergencyVehicle":
                 (
@@ -866,7 +887,10 @@ class ExpertAgent(AutonomousAgent):
                         self.ego_vehicle.get_transform().get_forward_vector().dot(diff)
                     )
                     if dot_res > 0:
-                        Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                        # Cheater.active_scenarios = Cheater.active_scenarios[1:]
+                        CarlaDataProvider.active_scenarios = (
+                            CarlaDataProvider.active_scenarios[1:]
+                        )
 
         if self.debug:
             for i in range(

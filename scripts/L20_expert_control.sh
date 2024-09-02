@@ -3,7 +3,7 @@ export SHELL_PATH=$(dirname $(readlink -f $0))
 export WORKSPACE=${SHELL_PATH}/..
 export CARLA_ROOT=${WORKSPACE}/CARLA_Leaderboard_20
 export LEADERBOARD_ROOT=${WORKSPACE}/leaderboard_20/leaderboard
-export SCENARIO_RUNNER_ROOT=${WORKSPACE}/leaderboard_20/scenario_runner
+export SCENARIO_RUNNER_ROOT=${WORKSPACE}/leaderboard_20/scenario_runner_custom
 export AUTOPILOT_ROOT=${WORKSPACE}
 
 export PYTHONPATH=$PYTHONPATH:${CARLA_ROOT}/PythonAPI/carla

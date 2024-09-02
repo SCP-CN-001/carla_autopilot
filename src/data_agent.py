@@ -437,55 +437,55 @@ class DataAgent(ExpertAgent):
             self.file_route_points.close()
 
         # if self.log_format == "json":
-        records = {"records": []}
-        len_record = len(self.control_commands["steer"])
-        for i in range(len_record):
-            records["records"].append(
-                {
-                    "control": {
-                        "steer": self.control_commands["steer"][i],
-                        "throttle": self.control_commands["throttle"][i],
-                        "brake": self.control_commands["brake"][i],
-                        "hand_brake": self.control_commands["hand_brake"][i],
-                        "reverse": self.control_commands["reverse"][i],
-                        "manual_gear_shift": self.control_commands["manual_gear_shift"][
-                            i
-                        ],
-                        "gear": self.control_commands["gear"][i],
-                    },
-                    "state": {
-                        "acceleration": {
-                            "value": self.states["acceleration"]["value"][i],
-                            "x": self.states["acceleration"]["x"][i],
-                            "y": self.states["acceleration"]["y"][i],
-                            "z": self.states["acceleration"]["z"][i],
-                        },
-                        "transform": {
-                            "x": self.states["transform"]["x"][i],
-                            "y": self.states["transform"]["y"][i],
-                            "z": self.states["transform"]["z"][i],
-                            "yaw": self.states["transform"]["yaw"][i],
-                            "pitch": self.states["transform"]["pitch"][i],
-                            "roll": self.states["transform"]["roll"][i],
-                        },
-                        "velocity": {
-                            "value": self.states["velocity"]["value"][i],
-                            "x": self.states["velocity"]["x"][i],
-                            "y": self.states["velocity"]["y"][i],
-                            "z": self.states["velocity"]["z"][i],
-                        },
-                    },
-                }
-            )
+        # records = {"records": []}
+        # len_record = len(self.control_commands["steer"])
+        # for i in range(len_record):
+        #     records["records"].append(
+        #         {
+        #             "control": {
+        #                 "steer": self.control_commands["steer"][i],
+        #                 "throttle": self.control_commands["throttle"][i],
+        #                 "brake": self.control_commands["brake"][i],
+        #                 "hand_brake": self.control_commands["hand_brake"][i],
+        #                 "reverse": self.control_commands["reverse"][i],
+        #                 "manual_gear_shift": self.control_commands["manual_gear_shift"][
+        #                     i
+        #                 ],
+        #                 "gear": self.control_commands["gear"][i],
+        #             },
+        #             "state": {
+        #                 "acceleration": {
+        #                     "value": self.states["acceleration"]["value"][i],
+        #                     "x": self.states["acceleration"]["x"][i],
+        #                     "y": self.states["acceleration"]["y"][i],
+        #                     "z": self.states["acceleration"]["z"][i],
+        #                 },
+        #                 "transform": {
+        #                     "x": self.states["transform"]["x"][i],
+        #                     "y": self.states["transform"]["y"][i],
+        #                     "z": self.states["transform"]["z"][i],
+        #                     "yaw": self.states["transform"]["yaw"][i],
+        #                     "pitch": self.states["transform"]["pitch"][i],
+        #                     "roll": self.states["transform"]["roll"][i],
+        #                 },
+        #                 "velocity": {
+        #                     "value": self.states["velocity"]["value"][i],
+        #                     "x": self.states["velocity"]["x"][i],
+        #                     "y": self.states["velocity"]["y"][i],
+        #                     "z": self.states["velocity"]["z"][i],
+        #                 },
+        #             },
+        #         }
+        #     )
 
-            with open(os.path.join(self.path_save, "log.json"), "w") as f:
-                json.dump(records, f, indent=4)
+        #     with open(os.path.join(self.path_save, "log.json"), "w") as f:
+        #         json.dump(records, f, indent=4)
         # elif self.log_format == "csv":
-        with open(os.path.join(self.path_save, "log.csv"), "w") as f:
-            f.write(
-                "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z\n"
-            )
-            for i in range(len(self.control_commands["steer"])):
-                f.write(
-                    f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}\n"
-                )
+        # with open(os.path.join(self.path_save, "log.csv"), "w") as f:
+        #     f.write(
+        #         "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z\n"
+        #     )
+        #     for i in range(len(self.control_commands["steer"])):
+        #         f.write(
+        #             f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}\n"
+        #         )

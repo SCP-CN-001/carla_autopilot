@@ -10,7 +10,7 @@ from agents.navigation.local_planner import RoadOption
 from shapely.geometry import Polygon
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 
-from leaderboard_custom.scenarios.cheater import Cheater
+# from leaderboard_custom.scenarios.cheater import Cheater
 
 
 def get_route_polygon(planner, max_distance, offset=0.0) -> Polygon:
@@ -59,13 +59,17 @@ def sort_scenarios_by_distance(ego_location):
     distances = []
 
     # Calculate the distance of each scenario's first actor from the ego vehicle
-    for _, scenario_data in Cheater.active_scenarios:
+    # for _, scenario_data in Cheater.active_scenarios:
+    for _, scenario_data in CarlaDataProvider.active_scenarios:
         first_actor = scenario_data[0]
         distances.append(ego_location.distance(first_actor.get_location()))
 
     # Sort the scenarios based on the calculated distances
     indices = np.argsort(distances)
-    Cheater.active_scenarios = [Cheater.active_scenarios[i] for i in indices]
+    # Cheater.active_scenarios = [Cheater.active_scenarios[i] for i in indices]
+    CarlaDataProvider.active_scenarios = [
+        CarlaDataProvider.active_scenarios[i] for i in indices
+    ]
 
 
 def compute_min_time_for_distance(

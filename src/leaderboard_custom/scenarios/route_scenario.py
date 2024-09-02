@@ -52,7 +52,7 @@ from srunner.scenariomanager.weather_sim import RouteWeatherBehavior
 from srunner.scenarios.background_activity import BackgroundBehavior
 from srunner.scenarios.basic_scenario import BasicScenario
 
-from src.leaderboard_custom.scenarios.cheater import Cheater
+# from src.leaderboard_custom.scenarios.cheater import Cheater
 
 
 class RouteScenario(BasicScenario):
@@ -384,7 +384,7 @@ class RouteScenario(BasicScenario):
                     scenario_instance = scenario_class(
                         self.world, [ego_vehicle], scenario_config, timeout=self.timeout
                     )
-                    Cheater.update(scenario_config.type, scenario_instance)
+                    # Cheater.update(scenario_config.type, scenario_instance)
 
                     # Add new scenarios to list
                     self.scenario_list.append(scenario_instance)

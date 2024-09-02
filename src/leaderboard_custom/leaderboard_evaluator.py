@@ -38,7 +38,8 @@ from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
 
 from src.leaderboard_custom.autoagents.agent_wrapper import AgentError
-from src.leaderboard_custom.scenarios.cheater import Cheater
+
+# from src.leaderboard_custom.scenarios.cheater import Cheater
 from src.leaderboard_custom.scenarios.route_scenario import RouteScenario
 from src.leaderboard_custom.scenarios.scenario_manager import ScenarioManager
 
@@ -155,7 +156,7 @@ class LeaderboardEvaluator:
         Remove and destroy all actors
         """
         CarlaDataProvider.cleanup()
-        Cheater.cleanup()
+        # Cheater.cleanup()
 
         if self._agent_watchdog:
             self._agent_watchdog.stop()
