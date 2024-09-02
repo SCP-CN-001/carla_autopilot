@@ -23,6 +23,7 @@ export DEBUG_CHALLENGE=0
 export ROUTES=${WORKSPACE}/leaderboard_20/leaderboard/data/routes_training.xml
 export ROUTES_SUBSET=0
 export REPETITIONS=1
+export DATAGEN=0
 
 export CHALLENGE_TRACK_CODENAME=MAP
 export TEAM_AGENT=${WORKSPACE}/src/data_agent.py
