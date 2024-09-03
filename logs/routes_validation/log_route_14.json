@@ -5,23 +5,23 @@
             "route_id": -1,
             "status": "Completed",
             "infractions": {
-                "collisions_layout": 1.063,
+                "collisions_layout": 0.0,
                 "collisions_pedestrian": 0.0,
                 "collisions_vehicle": 0.0,
                 "red_light": 0.0,
                 "stop_infraction": 0.0,
-                "outside_route_lanes": 0.002,
-                "min_speed_infractions": 0.228,
+                "outside_route_lanes": 0.004,
+                "min_speed_infractions": 0.152,
                 "yield_emergency_vehicle_infractions": 0.0,
-                "scenario_timeouts": 0.911,
+                "scenario_timeouts": 0.076,
                 "route_dev": 0.0,
                 "vehicle_blocked": 0.0,
                 "route_timeout": 0.0
             },
             "scores_mean": {
-                "score_composed": 0.00319,
+                "score_composed": 68.462844,
                 "score_route": 100.0,
-                "score_penalty": 3.2e-05
+                "score_penalty": 0.684628
             },
             "scores_std_dev": {
                 "score_composed": 0,
@@ -30,8 +30,8 @@
             },
             "meta": {
                 "total_length": 13168.327,
-                "duration_game": 3997.6,
-                "duration_system": 14329.453,
+                "duration_game": 1508.8,
+                "duration_system": 4754.397,
                 "exceptions": []
             }
         },
@@ -41,53 +41,27 @@
         ],
         "records": [
             {
+                "timestamp": "routes_validation_route0_09_01_23_30_50",
                 "index": 0,
                 "route_id": "RouteScenario_14_rep0",
                 "status": "Completed",
-                "num_infractions": 30,
+                "num_infractions": 4,
                 "infractions": {
-                    "collisions_layout": [
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5583 at (x=-2677.373, y=5901.53, z=158.31)",
-                        "Agent collided against object with type=static.prop.dirtdebris02 and id=5584 at (x=-2687.86, y=5901.506, z=158.652)",
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5583 at (x=-2693.062, y=5901.588, z=158.563)",
-                        "Agent collided against object with type=static.prop.constructioncone and id=5589 at (x=-2699.625, y=5901.418, z=158.548)",
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5607 at (x=-3007.102, y=5899.605, z=161.926)",
-                        "Agent collided against object with type=static.prop.dirtdebris02 and id=5608 at (x=-3016.436, y=5899.593, z=162.022)",
-                        "Agent collided against object with type=static.prop.constructioncone and id=5613 at (x=-3022.024, y=5899.494, z=162.098)",
-                        "Agent collided against object with type=static.prop.constructioncone and id=5614 at (x=-3028.543, y=5899.525, z=162.145)",
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5672 at (x=-3704.135, y=5249.585, z=165.423)",
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5672 at (x=-3703.439, y=5242.887, z=165.427)",
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5826 at (x=-3126.697, y=4713.167, z=178.032)",
-                        "Agent collided against object with type=static.prop.dirtdebris02 and id=5827 at (x=-3113.824, y=4710.985, z=178.299)",
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5826 at (x=-3108.888, y=4709.679, z=178.268)",
-                        "Agent collided against object with type=static.prop.constructioncone and id=5832 at (x=-3103.821, y=4709.626, z=178.359)"
-                    ],
+                    "collisions_layout": [],
                     "collisions_pedestrian": [],
                     "collisions_vehicle": [],
                     "red_light": [],
                     "stop_infraction": [],
                     "outside_route_lanes": [
-                        "Agent went outside its route lanes for about 2.004 meters (0.02% of the completed route)"
+                        "Agent went outside its route lanes for about 4.008 meters (0.03% of the completed route)"
                     ],
                     "min_speed_infractions": [
-                        "Average speed is 90.87% of the surrounding traffic's one",
-                        "Average speed is 97.71% of the surrounding traffic's one",
-                        "Average speed is 97.71% of the surrounding traffic's one"
+                        "Average speed is 96.37% of the surrounding traffic's one",
+                        "Average speed is 96.37% of the surrounding traffic's one"
                     ],
                     "yield_emergency_vehicle_infractions": [],
                     "scenario_timeouts": [
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario"
+                        "Agent timed out a scenario at (x=-1226.376, y=4639.889, z=148.684)"
                     ],
                     "route_dev": [],
                     "vehicle_blocked": [],
@@ -95,13 +69,13 @@
                 },
                 "scores": {
                     "score_route": 100,
-                    "score_penalty": 3.2e-05,
-                    "score_composed": 0.00319
+                    "score_penalty": 0.684628,
+                    "score_composed": 68.462844
                 },
                 "meta": {
                     "route_length": 13168.327,
-                    "duration_game": 3997.6,
-                    "duration_system": 14329.453
+                    "duration_game": 1508.8,
+                    "duration_system": 4754.397
                 }
             }
         ]
@@ -111,24 +85,25 @@
     "sensors": [
         "carla_opendrive_map",
         "carla_imu",
-        "carla_speedometer"
+        "carla_speedometer",
+        "carla_lidar"
     ],
     "values": [
-        "0.00319",
+        "68.462844",
         "100.0",
-        "3.2e-05",
-        "0.0",
-        "0.0",
-        "1.063",
-        "0.0",
-        "0.0",
-        "0.002",
+        "0.684628",
         "0.0",
         "0.0",
         "0.0",
         "0.0",
-        "0.911",
-        "0.228"
+        "0.0",
+        "0.004",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.076",
+        "0.152"
     ],
     "labels": [
         "Avg. driving score",

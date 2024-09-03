@@ -7,21 +7,21 @@
             "infractions": {
                 "collisions_layout": 0.0,
                 "collisions_pedestrian": 0.0,
-                "collisions_vehicle": 0.349,
+                "collisions_vehicle": 0.117,
                 "red_light": 0.0,
                 "stop_infraction": 0.0,
-                "outside_route_lanes": 0.0,
+                "outside_route_lanes": 0.003,
                 "min_speed_infractions": 0.0,
-                "yield_emergency_vehicle_infractions": 0.0,
-                "scenario_timeouts": 0.466,
+                "yield_emergency_vehicle_infractions": 0.117,
+                "scenario_timeouts": 0.0,
                 "route_dev": 0.0,
                 "vehicle_blocked": 0.0,
-                "route_timeout": 0.116
+                "route_timeout": 0.0
             },
             "scores_mean": {
-                "score_composed": 3.523996,
-                "score_route": 67.95,
-                "score_penalty": 0.051862
+                "score_composed": 28.52068,
+                "score_route": 67.93,
+                "score_penalty": 0.419854
             },
             "scores_std_dev": {
                 "score_composed": 0,
@@ -30,13 +30,13 @@
             },
             "meta": {
                 "total_length": 12634.171,
-                "duration_game": 4999.65,
-                "duration_system": 13824.689,
+                "duration_game": 2288.85,
+                "duration_system": 8394.23,
                 "exceptions": [
                     [
                         "RouteScenario_5_rep0",
                         0,
-                        "Failed - Agent timed out"
+                        "Failed"
                     ]
                 ]
             }
@@ -47,44 +47,40 @@
         ],
         "records": [
             {
+                "timestamp": "routes_validation_route0_09_01_09_20_30",
                 "index": 0,
                 "route_id": "RouteScenario_5_rep0",
-                "status": "Failed - Agent timed out",
-                "num_infractions": 8,
+                "status": "Failed",
+                "num_infractions": 3,
                 "infractions": {
                     "collisions_layout": [],
                     "collisions_pedestrian": [],
                     "collisions_vehicle": [
-                        "Agent collided against object with type=vehicle.ford.mustang and id=4873 at (x=-2314.962, y=-519.792, z=166.081)",
-                        "Agent collided against object with type=vehicle.ford.mustang and id=5050 at (x=-2252.931, y=-1004.317, z=158.071)",
-                        "Agent collided against object with type=vehicle.dodge.charger_2020 and id=5534 at (x=-2116.505, y=-2595.933, z=153.988)"
+                        "Agent collided against object with type=vehicle.ford.mustang and id=5383 at (x=-3418.84, y=-2858.324, z=159.008)"
                     ],
                     "red_light": [],
                     "stop_infraction": [],
-                    "outside_route_lanes": [],
-                    "min_speed_infractions": [],
-                    "yield_emergency_vehicle_infractions": [],
-                    "scenario_timeouts": [
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario"
+                    "outside_route_lanes": [
+                        "Agent went outside its route lanes for about 2.984 meters (0.03% of the completed route)"
                     ],
+                    "min_speed_infractions": [],
+                    "yield_emergency_vehicle_infractions": [
+                        "Agent failed to yield to an emergency vehicle at (x=-2870.849, y=-2841.827, z=155.99)"
+                    ],
+                    "scenario_timeouts": [],
                     "route_dev": [],
                     "vehicle_blocked": [],
-                    "route_timeout": [
-                        "Route timeout."
-                    ]
+                    "route_timeout": []
                 },
                 "scores": {
-                    "score_route": 67.95,
-                    "score_penalty": 0.051862,
-                    "score_composed": 3.523996
+                    "score_route": 67.93,
+                    "score_penalty": 0.419854,
+                    "score_composed": 28.52068
                 },
                 "meta": {
                     "route_length": 12634.171,
-                    "duration_game": 4999.65,
-                    "duration_system": 13824.689
+                    "duration_game": 2288.85,
+                    "duration_system": 8394.23
                 }
             }
         ]
@@ -94,23 +90,24 @@
     "sensors": [
         "carla_opendrive_map",
         "carla_imu",
-        "carla_speedometer"
+        "carla_speedometer",
+        "carla_lidar"
     ],
     "values": [
-        "3.523996",
-        "67.95",
-        "0.051862",
+        "28.52068",
+        "67.93",
+        "0.419854",
         "0.0",
-        "0.349",
-        "0.0",
-        "0.0",
+        "0.117",
         "0.0",
         "0.0",
         "0.0",
-        "0.116",
+        "0.003",
         "0.0",
         "0.0",
-        "0.466",
+        "0.0",
+        "0.117",
+        "0.0",
         "0.0"
     ],
     "labels": [

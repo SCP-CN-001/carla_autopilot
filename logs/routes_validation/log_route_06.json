@@ -5,23 +5,23 @@
             "route_id": -1,
             "status": "Completed",
             "infractions": {
-                "collisions_layout": 0.222,
+                "collisions_layout": 0.0,
                 "collisions_pedestrian": 0.0,
-                "collisions_vehicle": 0.518,
+                "collisions_vehicle": 0.074,
                 "red_light": 0.0,
-                "stop_infraction": 0.074,
+                "stop_infraction": 0.0,
                 "outside_route_lanes": 0.0,
                 "min_speed_infractions": 0.0,
                 "yield_emergency_vehicle_infractions": 0.0,
-                "scenario_timeouts": 1.405,
+                "scenario_timeouts": 0.0,
                 "route_dev": 0.0,
                 "vehicle_blocked": 0.0,
                 "route_timeout": 0.0
             },
             "scores_mean": {
-                "score_composed": 0.000701,
+                "score_composed": 60.0,
                 "score_route": 100.0,
-                "score_penalty": 7e-06
+                "score_penalty": 0.6
             },
             "scores_std_dev": {
                 "score_composed": 0,
@@ -30,8 +30,8 @@
             },
             "meta": {
                 "total_length": 13521.076,
-                "duration_game": 5751.05,
-                "duration_system": 20935.765,
+                "duration_game": 1560.0,
+                "duration_system": 5217.227,
                 "exceptions": []
             }
         },
@@ -41,67 +41,36 @@
         ],
         "records": [
             {
+                "timestamp": "routes_validation_route0_09_01_11_04_43",
                 "index": 0,
                 "route_id": "RouteScenario_6_rep0",
                 "status": "Completed",
-                "num_infractions": 30,
+                "num_infractions": 1,
                 "infractions": {
-                    "collisions_layout": [
-                        "Agent collided against object with type=static.prop.trafficwarning and id=5895 at (x=-589.78, y=1672.379, z=147.678)",
-                        "Agent collided against object with type=static.prop.dirtdebris02 and id=5896 at (x=-600.116, y=1668.326, z=147.736)",
-                        "Agent collided against object with type=static.prop.constructioncone and id=5901 at (x=-607.501, y=1665.446, z=147.657)"
-                    ],
+                    "collisions_layout": [],
                     "collisions_pedestrian": [],
                     "collisions_vehicle": [
-                        "Agent collided against object with type=vehicle.mercedes.coupe_2020 and id=4875 at (x=-1274.473, y=138.454, z=153.162)",
-                        "Agent collided against object with type=vehicle.lincoln.mkz_2020 and id=5496 at (x=-1443.731, y=1736.82, z=148.985)",
-                        "Agent collided against object with type=vehicle.lincoln.mkz_2017 and id=5582 at (x=-1797.307, y=2220.413, z=151.488)",
-                        "Agent collided against object with type=vehicle.nissan.patrol_2021 and id=5717 at (x=-1297.06, y=2646.633, z=147.103)",
-                        "Agent collided against object with type=vehicle.mini.cooper_s_2021 and id=5832 at (x=-911.937, y=2144.382, z=146.51)",
-                        "Agent collided against object with type=vehicle.mini.cooper_s_2021 and id=6032 at (x=-1021.288, y=2361.239, z=146.415)",
-                        "Agent collided against object with type=vehicle.mini.cooper_s_2021 and id=6133 at (x=-1724.586, y=2841.579, z=149.231)"
+                        "Agent collided against object with type=vehicle.ford.mustang and id=4880 at (x=-1273.946, y=143.027, z=153.159)"
                     ],
                     "red_light": [],
-                    "stop_infraction": [
-                        "Agent ran a stop with id=131 at (x=-1048.973, y=2223.613, z=146.664)"
-                    ],
+                    "stop_infraction": [],
                     "outside_route_lanes": [],
                     "min_speed_infractions": [],
                     "yield_emergency_vehicle_infractions": [],
-                    "scenario_timeouts": [
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario"
-                    ],
+                    "scenario_timeouts": [],
                     "route_dev": [],
                     "vehicle_blocked": [],
                     "route_timeout": []
                 },
                 "scores": {
                     "score_route": 100,
-                    "score_penalty": 7e-06,
-                    "score_composed": 0.000701
+                    "score_penalty": 0.6,
+                    "score_composed": 60.0
                 },
                 "meta": {
                     "route_length": 13521.076,
-                    "duration_game": 5751.05,
-                    "duration_system": 20935.765
+                    "duration_game": 1560.0,
+                    "duration_system": 5217.227
                 }
             }
         ]
@@ -111,15 +80,13 @@
     "sensors": [
         "carla_opendrive_map",
         "carla_imu",
-        "carla_speedometer"
+        "carla_speedometer",
+        "carla_lidar"
     ],
     "values": [
-        "0.000701",
+        "60.0",
         "100.0",
-        "7e-06",
-        "0.0",
-        "0.518",
-        "0.222",
+        "0.6",
         "0.0",
         "0.074",
         "0.0",
@@ -127,7 +94,10 @@
         "0.0",
         "0.0",
         "0.0",
-        "1.405",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
         "0.0"
     ],
     "labels": [

@@ -11,17 +11,17 @@
                 "red_light": 0.0,
                 "stop_infraction": 0.0,
                 "outside_route_lanes": 0.0,
-                "min_speed_infractions": 0.081,
+                "min_speed_infractions": 0.0,
                 "yield_emergency_vehicle_infractions": 0.0,
-                "scenario_timeouts": 1.304,
+                "scenario_timeouts": 0.163,
                 "route_dev": 0.0,
                 "vehicle_blocked": 0.0,
                 "route_timeout": 0.0
             },
             "scores_mean": {
-                "score_composed": 0.013622,
+                "score_composed": 2.217315,
                 "score_route": 100.0,
-                "score_penalty": 0.000136
+                "score_penalty": 0.022173
             },
             "scores_std_dev": {
                 "score_composed": 0,
@@ -30,8 +30,8 @@
             },
             "meta": {
                 "total_length": 12271.554,
-                "duration_game": 5382.15,
-                "duration_system": 18034.12,
+                "duration_game": 2026.85,
+                "duration_system": 7254.289,
                 "exceptions": []
             }
         },
@@ -41,47 +41,32 @@
         ],
         "records": [
             {
+                "timestamp": "routes_validation_route0_09_01_11_43_25",
                 "index": 0,
                 "route_id": "RouteScenario_7_rep0",
                 "status": "Completed",
-                "num_infractions": 24,
+                "num_infractions": 9,
                 "infractions": {
                     "collisions_layout": [
-                        "Agent collided against object with type=static.fence and id=0 at (x=-4394.16, y=-248.464, z=168.892)",
-                        "Agent collided against object with type=static.fence and id=0 at (x=-4419.72, y=-244.96, z=168.578)",
-                        "Agent collided against object with type=static.fence and id=0 at (x=-4424.242, y=-242.815, z=168.519)",
-                        "Agent collided against object with type=static.fence and id=0 at (x=-4434.569, y=-242.476, z=168.388)",
-                        "Agent collided against object with type=static.fence and id=0 at (x=-4439.137, y=-240.396, z=168.338)",
-                        "Agent collided against object with type=static.fence and id=0 at (x=-4444.183, y=-239.934, z=168.281)"
+                        "Agent collided against object with type=static.fence and id=0 at (x=-4392.781, y=-248.634, z=168.909)",
+                        "Agent collided against object with type=static.fence and id=0 at (x=-4420.333, y=-244.867, z=168.57)",
+                        "Agent collided against object with type=static.fence and id=0 at (x=-4424.94, y=-242.922, z=168.514)",
+                        "Agent collided against object with type=static.fence and id=0 at (x=-4434.771, y=-242.454, z=168.386)",
+                        "Agent collided against object with type=static.fence and id=0 at (x=-4439.319, y=-240.371, z=168.327)",
+                        "Agent collided against object with type=static.fence and id=0 at (x=-4444.391, y=-239.923, z=168.283)"
                     ],
                     "collisions_pedestrian": [],
                     "collisions_vehicle": [
-                        "Agent collided against object with type=vehicle.dodge.charger_2020 and id=9889 at (x=-3934.155, y=3619.604, z=186.271)"
+                        "Agent collided against object with type=vehicle.lincoln.mkz_2017 and id=7855 at (x=-3929.717, y=1826.425, z=159.03)"
                     ],
                     "red_light": [],
                     "stop_infraction": [],
                     "outside_route_lanes": [],
-                    "min_speed_infractions": [
-                        "Average speed is 68.61% of the surrounding traffic's one"
-                    ],
+                    "min_speed_infractions": [],
                     "yield_emergency_vehicle_infractions": [],
                     "scenario_timeouts": [
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario",
-                        "Agent timed out a scenario"
+                        "Agent timed out a scenario at (x=-4427.377, y=-242.57, z=168.48)",
+                        "Agent timed out a scenario at (x=-4427.939, y=-242.319, z=168.482)"
                     ],
                     "route_dev": [],
                     "vehicle_blocked": [],
@@ -89,13 +74,13 @@
                 },
                 "scores": {
                     "score_route": 100,
-                    "score_penalty": 0.000136,
-                    "score_composed": 0.013622
+                    "score_penalty": 0.022173,
+                    "score_composed": 2.217315
                 },
                 "meta": {
                     "route_length": 12271.554,
-                    "duration_game": 5382.15,
-                    "duration_system": 18034.12
+                    "duration_game": 2026.85,
+                    "duration_system": 7254.289
                 }
             }
         ]
@@ -105,12 +90,13 @@
     "sensors": [
         "carla_opendrive_map",
         "carla_imu",
-        "carla_speedometer"
+        "carla_speedometer",
+        "carla_lidar"
     ],
     "values": [
-        "0.013622",
+        "2.217315",
         "100.0",
-        "0.000136",
+        "0.022173",
         "0.0",
         "0.081",
         "0.489",
@@ -121,8 +107,8 @@
         "0.0",
         "0.0",
         "0.0",
-        "1.304",
-        "0.081"
+        "0.163",
+        "0.0"
     ],
     "labels": [
         "Avg. driving score",
