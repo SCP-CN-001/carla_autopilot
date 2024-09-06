@@ -8,6 +8,7 @@ import copy
 import json
 import logging
 import os
+import pickle as pkl
 import threading
 import time
 
@@ -23,7 +24,7 @@ from srunner.scenariomanager.timer import GameTime
 from src.common_carla.bounding_box import get_polygon_shape
 from src.expert_agent import ExpertAgent
 from src.utils.common import get_absolute_path, get_random_weather
-from src.utils.geometry import get_transform_2D
+from src.utils.geometry import get_transform_2D, get_world_to_ego_to_image_coords
 from src.utils.visualizer import Visualizer
 
 
@@ -133,6 +134,9 @@ class DataAgent(ExpertAgent):
                 "y": [],
                 "z": [],
             },
+            "route_points": {
+                "remain": [],
+            },
         }
 
         # save data
@@ -162,10 +166,17 @@ class DataAgent(ExpertAgent):
                                 f"{self.path_save}/{sensor_id}/{path_save}"
                             )
                         )
+                if not os.path.exists(
+                    get_absolute_path(f"{self.path_save}/{sensor_id}/raw")
+                ):
+                    os.makedirs(get_absolute_path(f"{self.path_save}/{sensor_id}/raw"))
 
         if self.save_route:
             if not os.path.exists(f"{self.path_save}/route"):
                 os.makedirs(f"{self.path_save}/route")
+
+            if not os.path.exists(f"{self.path_save}/traffic_sign"):
+                os.makedirs(f"{self.path_save}/traffic_sign")
 
             self.file_route_points = open(
                 get_absolute_path(f"{self.path_save}/route_points.csv"), "w"
@@ -173,6 +184,9 @@ class DataAgent(ExpertAgent):
             self.route_image = pygame.Surface(
                 (self.route_image_width, self.route_image_height)
             )
+            self.traffic_sign_image = pygame.Surface(
+                (self.route_image_width, self.route_image_height)
+            )  # TODO: define the traffic sign representation
 
         self.lidar_id_list = []
         self.lidar_cache = {}
@@ -264,6 +278,8 @@ class DataAgent(ExpertAgent):
         self.states["velocity"]["y"].append(ego_velocity.y)
         self.states["velocity"]["z"].append(ego_velocity.z)
 
+        self.states["route_points"]["remain"].append(len(self.remaining_route_original))
+
     def save_image(self, image, folder_name):
         path_file = f"{self.path_save}/{folder_name}/frame_{self.step:06d}.png"
         cv2.imwrite(path_file, image)
@@ -279,10 +295,14 @@ class DataAgent(ExpertAgent):
             return
 
         images = self.palette[semantic_segmentation[:, :, -2]]
+        raw_image = semantic_segmentation[:, :, -2].astype(np.uint8)
 
         assert images.shape[2] == len(
             self.save_semantic_bev["path_save"]
         ), "The number of semantic segmentation classes should be equal to the number of save semantic BEV classes."
+
+        path_file = f"{self.path_save}/{folder_name}/raw/frame_{self.step:06d}.png"
+        cv2.imwrite(path_file, raw_image)
 
         if self.save_semantic_bev["binary"]:
             images = images * 255
@@ -335,52 +355,117 @@ class DataAgent(ExpertAgent):
         ego_location = self.ego_vehicle.get_location()
         ego_transform = self.ego_vehicle.get_transform()
 
-        self.route_image.fill((0, 0, 0))
+        # debug
+        # ego_location_ = [ego_location.x, ego_location.y, ego_location.z]
+        # ego_transform_ = [ego_transform.rotation.yaw, ego_transform.rotation.pitch, ego_transform.rotation.roll]
+        # pkl.dump([self.remaining_route_original[:50], self.sensor_configs, ego_location_, ego_transform_]
+        #           , open('/home/rowena/Documents/ramble/data/expert_data/route_5/data/%s.pkl'%self.step, 'wb'))
 
-        route_points = []
-        for route_point in self.remaining_route_original[:50]:
-            route_points.append([route_point[0], route_point[1]])
+        self.route_image.fill((0, 0, 0))
+        self.traffic_sign_image.fill((0, 0, 0))
+
+        ego_transform_dict = {
+            "x": ego_transform.location.x,
+            "y": ego_transform.location.y,
+            "z": ego_transform.location.z,
+            "roll": np.deg2rad(ego_transform.rotation.roll),
+            "pitch": np.deg2rad(ego_transform.rotation.pitch),
+            "yaw": np.deg2rad(ego_transform.rotation.yaw),
+        }
+
+        camera_transform_dict = {
+            "x": self.sensor_configs["semantic_bev"]["x"],
+            "y": self.sensor_configs["semantic_bev"]["y"],
+            "z": self.sensor_configs["semantic_bev"]["z"],
+            "roll": np.deg2rad(self.sensor_configs["semantic_bev"]["roll"]),
+            "pitch": np.deg2rad(self.sensor_configs["semantic_bev"]["pitch"]),
+            "yaw": np.deg2rad(self.sensor_configs["semantic_bev"]["yaw"]),
+        }
+
+        route_points_world = []
+        len_route_draw = 50
+        for route_point in self.remaining_route_original[:len_route_draw]:
+            route_points_world.append([route_point[0], route_point[1], route_point[2]])
 
         route_points = get_transform_2D(
-            np.array(route_points),
+            np.array(route_points_world)[:, :2],
             np.array([ego_location.x, ego_location.y]),
             np.deg2rad(ego_transform.rotation.yaw),
         )
 
+        # save route points to file
         str_route_points = ",".join(f"[{x[0]}, {x[1]}]" for x in route_points)
         self.file_route_points.write(str_route_points + "\n")
 
-        # Move the center of ego vehicle
-        scale = self.route_image_width / self.route_image_width_meter
-        route_points = route_points * scale + np.array(
-            [10 * scale, self.route_image_height / 2]
+        def _get_polygon_shape3d(bbox: carla.BoundingBox):
+            diff_x = bbox.rotation.get_forward_vector() * bbox.extent.x
+            diff_y = bbox.rotation.get_right_vector() * bbox.extent.y
+            diff_z = bbox.rotation.get_up_vector() * bbox.extent.z
+
+            pt1 = bbox.location + diff_x + diff_y + diff_z
+            pt2 = bbox.location + diff_x - diff_y + diff_z
+            pt3 = bbox.location - diff_x - diff_y + diff_z
+            pt4 = bbox.location - diff_x + diff_y + diff_z
+
+            polygon_shape = [
+                [pt1.x, pt1.y, pt1.z],
+                [pt2.x, pt2.y, pt2.z],
+                [pt3.x, pt3.y, pt3.z],
+                [pt4.x, pt4.y, pt4.z],
+            ]  # we only consider the upper surface
+            return polygon_shape
+
+        # concatenate the location of traffic lights and stop signs to route points
+        n_traffic_light = len(self.traffic_light_loc)
+        n_stop_sign = len(self.stop_sign_bbox)
+        other_locations = [[loc.x, loc.y, loc.z] for loc in self.traffic_light_loc]
+        for bbox in self.stop_sign_bbox:
+            other_locations.extend(_get_polygon_shape3d(bbox))
+
+        assert len(other_locations) == n_traffic_light + n_stop_sign * 4
+
+        points_to_transform = np.array(route_points_world + other_locations)
+
+        # calculate the route points and location of signs in image coordinates
+        points_image = get_world_to_ego_to_image_coords(
+            points_to_transform,
+            ego_transform_dict,
+            camera_transform_dict,
+            self.sensor_configs["semantic_bev"]["fov"],
+            (
+                self.sensor_configs["semantic_bev"]["width"],
+                self.sensor_configs["semantic_bev"]["height"],
+            ),
+        )
+        route_points_image = points_image[:len_route_draw]
+        traffic_light_coords_on_image = points_image[
+            len_route_draw : len_route_draw + n_traffic_light
+        ]
+        stop_sign_coords_on_image = points_image[
+            len_route_draw + n_traffic_light :
+        ].reshape(n_stop_sign, 4, 2)
+
+        # draw route points
+        pygame.draw.lines(
+            self.route_image, (255, 255, 255), False, route_points_image, 3
         )
 
-        pygame.draw.lines(self.route_image, (255, 255, 255), False, route_points, 3)
-
-        for loc in self.traffic_light_loc:
-            transformed_wp = get_transform_2D(
-                np.array([loc.x, loc.y]),
-                np.array([ego_location.x, ego_location.y]),
-                np.deg2rad(ego_transform.rotation.yaw),
-            )
-            transformed_wp = transformed_wp * 10 + np.array([100, 200])
-            pygame.draw.circle(self.route_image, (255, 255, 255), transformed_wp, 10)
-
-        for bbox in self.stop_sign_bbox:
-            bbox_shape = get_polygon_shape(bbox)
-            transformed_bbox_shape = get_transform_2D(
-                np.array(bbox_shape),
-                np.array([ego_location.x, ego_location.y]),
-                np.deg2rad(ego_transform.rotation.yaw),
-            )
-            transformed_bbox_shape = transformed_bbox_shape * 10 + np.array([100, 200])
-            pygame.draw.polygon(
-                self.route_image, (255, 255, 255), transformed_bbox_shape
-            )
+        # draw traffic light and stop sign
+        for loc in traffic_light_coords_on_image:
+            if loc[0] < route_points_image[0][0]:
+                continue
+            pygame.draw.circle(self.traffic_sign_image, (255, 255, 255), loc, 10)
+        for bbox in stop_sign_coords_on_image:
+            if np.min(bbox[:, 0]) < route_points_image[0][0]:
+                continue
+            pygame.draw.polygon(self.traffic_sign_image, (255, 255, 255), bbox)
 
         pygame.image.save(
             self.route_image, f"{self.path_save}/route/frame_{self.step:06d}.png"
+        )
+        pygame.image.save(
+            self.traffic_sign_image,
+            f"{self.path_save}/traffic_sign/frame_{self.step:06d}.png",
         )
 
     def run_step(self, input_data):
@@ -437,55 +522,58 @@ class DataAgent(ExpertAgent):
             self.file_route_points.close()
 
         # if self.log_format == "json":
-        # records = {"records": []}
-        # len_record = len(self.control_commands["steer"])
-        # for i in range(len_record):
-        #     records["records"].append(
-        #         {
-        #             "control": {
-        #                 "steer": self.control_commands["steer"][i],
-        #                 "throttle": self.control_commands["throttle"][i],
-        #                 "brake": self.control_commands["brake"][i],
-        #                 "hand_brake": self.control_commands["hand_brake"][i],
-        #                 "reverse": self.control_commands["reverse"][i],
-        #                 "manual_gear_shift": self.control_commands["manual_gear_shift"][
-        #                     i
-        #                 ],
-        #                 "gear": self.control_commands["gear"][i],
-        #             },
-        #             "state": {
-        #                 "acceleration": {
-        #                     "value": self.states["acceleration"]["value"][i],
-        #                     "x": self.states["acceleration"]["x"][i],
-        #                     "y": self.states["acceleration"]["y"][i],
-        #                     "z": self.states["acceleration"]["z"][i],
-        #                 },
-        #                 "transform": {
-        #                     "x": self.states["transform"]["x"][i],
-        #                     "y": self.states["transform"]["y"][i],
-        #                     "z": self.states["transform"]["z"][i],
-        #                     "yaw": self.states["transform"]["yaw"][i],
-        #                     "pitch": self.states["transform"]["pitch"][i],
-        #                     "roll": self.states["transform"]["roll"][i],
-        #                 },
-        #                 "velocity": {
-        #                     "value": self.states["velocity"]["value"][i],
-        #                     "x": self.states["velocity"]["x"][i],
-        #                     "y": self.states["velocity"]["y"][i],
-        #                     "z": self.states["velocity"]["z"][i],
-        #                 },
-        #             },
-        #         }
-        #     )
+        records = {"records": []}
+        len_record = len(self.control_commands["steer"])
+        for i in range(len_record):
+            records["records"].append(
+                {
+                    "control": {
+                        "steer": self.control_commands["steer"][i],
+                        "throttle": self.control_commands["throttle"][i],
+                        "brake": self.control_commands["brake"][i],
+                        "hand_brake": self.control_commands["hand_brake"][i],
+                        "reverse": self.control_commands["reverse"][i],
+                        "manual_gear_shift": self.control_commands["manual_gear_shift"][
+                            i
+                        ],
+                        "gear": self.control_commands["gear"][i],
+                    },
+                    "state": {
+                        "acceleration": {
+                            "value": self.states["acceleration"]["value"][i],
+                            "x": self.states["acceleration"]["x"][i],
+                            "y": self.states["acceleration"]["y"][i],
+                            "z": self.states["acceleration"]["z"][i],
+                        },
+                        "transform": {
+                            "x": self.states["transform"]["x"][i],
+                            "y": self.states["transform"]["y"][i],
+                            "z": self.states["transform"]["z"][i],
+                            "yaw": self.states["transform"]["yaw"][i],
+                            "pitch": self.states["transform"]["pitch"][i],
+                            "roll": self.states["transform"]["roll"][i],
+                        },
+                        "velocity": {
+                            "value": self.states["velocity"]["value"][i],
+                            "x": self.states["velocity"]["x"][i],
+                            "y": self.states["velocity"]["y"][i],
+                            "z": self.states["velocity"]["z"][i],
+                        },
+                    },
+                    "route_points": {
+                        "remain": self.states["route_points"]["remain"][i],
+                    },
+                }
+            )
 
-        #     with open(os.path.join(self.path_save, "log.json"), "w") as f:
-        #         json.dump(records, f, indent=4)
+        with open(os.path.join(self.path_save, "log.json"), "w") as f:
+            json.dump(records, f, indent=4)
         # elif self.log_format == "csv":
-        # with open(os.path.join(self.path_save, "log.csv"), "w") as f:
-        #     f.write(
-        #         "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z\n"
-        #     )
-        #     for i in range(len(self.control_commands["steer"])):
-        #         f.write(
-        #             f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}\n"
-        #         )
+        with open(os.path.join(self.path_save, "log.csv"), "w") as f:
+            f.write(
+                "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z,remain_route_point\n"
+            )
+            for i in range(len(self.control_commands["steer"])):
+                f.write(
+                    f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}, {self.states['route_points']['remain'][i]}\n"
+                )
