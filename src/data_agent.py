@@ -21,7 +21,6 @@ import wandb
 from omegaconf import OmegaConf
 from srunner.scenariomanager.timer import GameTime
 
-from src.common_carla.bounding_box import get_polygon_shape
 from src.expert_agent import ExpertAgent
 from src.utils.common import get_absolute_path, get_random_weather
 from src.utils.geometry import get_transform_2D, get_world_to_ego_to_image_coords
@@ -149,7 +148,10 @@ class DataAgent(ExpertAgent):
             if not os.path.exists(path_data):
                 os.makedirs(path_data)
 
-        if getattr(self, "save_semantic_bev") is not None:
+        if (
+            hasattr(self, "save_semantic_bev")
+            and getattr(self, "save_semantic_bev") is not None
+        ):
             self.palette = np.array(
                 OmegaConf.load(
                     get_absolute_path(self.save_semantic_bev["path_palette"])
@@ -521,59 +523,62 @@ class DataAgent(ExpertAgent):
         if self.save_route:
             self.file_route_points.close()
 
-        # if self.log_format == "json":
-        records = {"records": []}
-        len_record = len(self.control_commands["steer"])
-        for i in range(len_record):
-            records["records"].append(
-                {
-                    "control": {
-                        "steer": self.control_commands["steer"][i],
-                        "throttle": self.control_commands["throttle"][i],
-                        "brake": self.control_commands["brake"][i],
-                        "hand_brake": self.control_commands["hand_brake"][i],
-                        "reverse": self.control_commands["reverse"][i],
-                        "manual_gear_shift": self.control_commands["manual_gear_shift"][
-                            i
-                        ],
-                        "gear": self.control_commands["gear"][i],
-                    },
-                    "state": {
-                        "acceleration": {
-                            "value": self.states["acceleration"]["value"][i],
-                            "x": self.states["acceleration"]["x"][i],
-                            "y": self.states["acceleration"]["y"][i],
-                            "z": self.states["acceleration"]["z"][i],
+        if self.log_format in ["json", "pickle"]:
+            records = {"records": []}
+            len_record = len(self.control_commands["steer"])
+            for i in range(len_record):
+                records["records"].append(
+                    {
+                        "control": {
+                            "steer": self.control_commands["steer"][i],
+                            "throttle": self.control_commands["throttle"][i],
+                            "brake": self.control_commands["brake"][i],
+                            "hand_brake": self.control_commands["hand_brake"][i],
+                            "reverse": self.control_commands["reverse"][i],
+                            "manual_gear_shift": self.control_commands[
+                                "manual_gear_shift"
+                            ][i],
+                            "gear": self.control_commands["gear"][i],
                         },
-                        "transform": {
-                            "x": self.states["transform"]["x"][i],
-                            "y": self.states["transform"]["y"][i],
-                            "z": self.states["transform"]["z"][i],
-                            "yaw": self.states["transform"]["yaw"][i],
-                            "pitch": self.states["transform"]["pitch"][i],
-                            "roll": self.states["transform"]["roll"][i],
+                        "state": {
+                            "acceleration": {
+                                "value": self.states["acceleration"]["value"][i],
+                                "x": self.states["acceleration"]["x"][i],
+                                "y": self.states["acceleration"]["y"][i],
+                                "z": self.states["acceleration"]["z"][i],
+                            },
+                            "transform": {
+                                "x": self.states["transform"]["x"][i],
+                                "y": self.states["transform"]["y"][i],
+                                "z": self.states["transform"]["z"][i],
+                                "yaw": self.states["transform"]["yaw"][i],
+                                "pitch": self.states["transform"]["pitch"][i],
+                                "roll": self.states["transform"]["roll"][i],
+                            },
+                            "velocity": {
+                                "value": self.states["velocity"]["value"][i],
+                                "x": self.states["velocity"]["x"][i],
+                                "y": self.states["velocity"]["y"][i],
+                                "z": self.states["velocity"]["z"][i],
+                            },
                         },
-                        "velocity": {
-                            "value": self.states["velocity"]["value"][i],
-                            "x": self.states["velocity"]["x"][i],
-                            "y": self.states["velocity"]["y"][i],
-                            "z": self.states["velocity"]["z"][i],
+                        "route_points": {
+                            "remain": self.states["route_points"]["remain"][i],
                         },
-                    },
-                    "route_points": {
-                        "remain": self.states["route_points"]["remain"][i],
-                    },
-                }
-            )
-
-        with open(os.path.join(self.path_save, "log.json"), "w") as f:
-            json.dump(records, f, indent=4)
-        # elif self.log_format == "csv":
-        with open(os.path.join(self.path_save, "log.csv"), "w") as f:
-            f.write(
-                "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z,remain_route_point\n"
-            )
-            for i in range(len(self.control_commands["steer"])):
-                f.write(
-                    f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}, {self.states['route_points']['remain'][i]}\n"
+                    }
                 )
+            if self.log_format == "pickle":
+                with open(os.path.join(self.path_save, "ego_states.pkl"), "wb") as f:
+                    pkl.dump(records, f)
+            elif self.log_format == "json":
+                with open(os.path.join(self.path_save, "ego_states.json"), "w") as f:
+                    json.dump(records, f, indent=4)
+        elif self.log_format == "csv":
+            with open(os.path.join(self.path_save, "ego_states.csv"), "w") as f:
+                f.write(
+                    "steer,throttle,brake,hand_brake,reverse,manual_gear_shift,gear,acceleration_value,acceleration_x,acceleration_y,acceleration_z,transform_x,transform_y,transform_z,transform_yaw,transform_pitch,transform_roll,velocity_value,velocity_x,velocity_y,velocity_z,remain_route_point\n"
+                )
+                for i in range(len(self.control_commands["steer"])):
+                    f.write(
+                        f"{self.control_commands['steer'][i]},{self.control_commands['throttle'][i]},{self.control_commands['brake'][i]},{self.control_commands['hand_brake'][i]},{self.control_commands['reverse'][i]},{self.control_commands['manual_gear_shift'][i]},{self.control_commands['gear'][i]},{self.states['acceleration']['value'][i]},{self.states['acceleration']['x'][i]},{self.states['acceleration']['y'][i]},{self.states['acceleration']['z'][i]},{self.states['transform']['x'][i]},{self.states['transform']['y'][i]},{self.states['transform']['z'][i]},{self.states['transform']['yaw'][i]},{self.states['transform']['pitch'][i]},{self.states['transform']['roll'][i]},{self.states['velocity']['value'][i]},{self.states['velocity']['x'][i]},{self.states['velocity']['y'][i]},{self.states['velocity']['z'][i]}, {self.states['route_points']['remain'][i]}\n"
+                    )
