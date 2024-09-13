@@ -9,10 +9,9 @@ import os
 import carla
 import numpy as np
 from agents.navigation.local_planner import RoadOption
+from carla_autopilot.common_carla.bounding_box import is_point_in_bbox
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
-
-from src.common_carla.bounding_box import is_point_in_bbox
 
 
 class PrivilegedRoutePlanner:

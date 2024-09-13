@@ -6,8 +6,7 @@
 
 
 import numpy as np
-
-from src.controllers.controller_base import ControllerBase
+from carla_autopilot.controllers.controller_base import ControllerBase
 
 
 class LateralPIDController(ControllerBase):

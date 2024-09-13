@@ -21,16 +21,15 @@ import time
 import carla
 import py_trees
 import wandb
+from carla_autopilot.leaderboard_custom.autoagents.agent_wrapper import (
+    AgentError,
+    AgentWrapperFactory,
+)
 from leaderboard.envs.sensor_interface import SensorReceivedNoData
 from leaderboard.utils.result_writer import ResultOutputProvider
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
-
-from src.leaderboard_custom.autoagents.agent_wrapper import (
-    AgentError,
-    AgentWrapperFactory,
-)
 
 
 class ScenarioManager:

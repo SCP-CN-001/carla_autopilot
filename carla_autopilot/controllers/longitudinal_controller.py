@@ -5,8 +5,7 @@
 # @Author: Yueyuan Li, PDM-Lite Team
 
 import numpy as np
-
-from src.controllers.controller_base import ControllerBase
+from carla_autopilot.controllers.controller_base import ControllerBase
 
 
 class LongitudinalPIDController(ControllerBase):

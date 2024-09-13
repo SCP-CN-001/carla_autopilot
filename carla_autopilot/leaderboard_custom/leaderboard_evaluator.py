@@ -29,6 +29,13 @@ import carla
 import numpy as np
 import pkg_resources
 import torch
+from carla_autopilot.leaderboard_custom.autoagents.agent_wrapper import AgentError
+
+# from src.leaderboard_custom.scenarios.cheater import Cheater
+from carla_autopilot.leaderboard_custom.scenarios.route_scenario import RouteScenario
+from carla_autopilot.leaderboard_custom.scenarios.scenario_manager import (
+    ScenarioManager,
+)
 from leaderboard.envs.sensor_interface import SensorConfigurationInvalid
 from leaderboard.utils.route_indexer import RouteIndexer
 from leaderboard.utils.statistics_manager import FAILURE_MESSAGES, StatisticsManager
@@ -36,12 +43,6 @@ from srunner.scenariomanager.carla_data_provider import *
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
-
-from src.leaderboard_custom.autoagents.agent_wrapper import AgentError
-
-# from src.leaderboard_custom.scenarios.cheater import Cheater
-from src.leaderboard_custom.scenarios.route_scenario import RouteScenario
-from src.leaderboard_custom.scenarios.scenario_manager import ScenarioManager
 
 sensors_to_icons = {
     "sensor.camera.rgb": "carla_camera",

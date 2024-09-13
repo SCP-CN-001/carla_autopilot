@@ -10,29 +10,36 @@ from collections import deque
 
 import carla
 import numpy as np
+from carla_autopilot.common_carla.actor import (
+    get_horizontal_distance,
+    get_nearby_objects,
+)
+from carla_autopilot.common_carla.bounding_box import check_obb_intersection
+from carla_autopilot.common_carla.route import (
+    get_previous_road_lane_ids,
+    is_near_lane_change,
+    is_overtaking_path_clear,
+    sort_scenarios_by_distance,
+)
+from carla_autopilot.common_carla.traffic_light import (
+    get_before_traffic_light_waypoints,
+)
+from carla_autopilot.controllers import (
+    LateralPIDController,
+    LongitudinalLinearRegressionController,
+)
+
+# from src.leaderboard_custom.scenarios.cheater import Cheater
+from carla_autopilot.planners.privileged_route_planner import PrivilegedRoutePlanner
+from carla_autopilot.planners.route_planner import RoutePlanner
+from carla_autopilot.utils.geometry import get_angle_by_position, normalize_angle
+from carla_autopilot.utils.kinematic_bicycle_model import KinematicBicycleModel
 from leaderboard.autoagents.autonomous_agent import AutonomousAgent
 from leaderboard.envs.sensor_interface import SensorInterface
 from omegaconf import OmegaConf
 from scipy.integrate import RK45
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
-
-from src.common_carla.actor import get_horizontal_distance, get_nearby_objects
-from src.common_carla.bounding_box import check_obb_intersection
-from src.common_carla.route import (
-    get_previous_road_lane_ids,
-    is_near_lane_change,
-    is_overtaking_path_clear,
-    sort_scenarios_by_distance,
-)
-from src.common_carla.traffic_light import get_before_traffic_light_waypoints
-from src.controllers import LateralPIDController, LongitudinalLinearRegressionController
-
-# from src.leaderboard_custom.scenarios.cheater import Cheater
-from src.planners.privileged_route_planner import PrivilegedRoutePlanner
-from src.planners.route_planner import RoutePlanner
-from src.utils.geometry import get_angle_by_position, normalize_angle
-from src.utils.kinematic_bicycle_model import KinematicBicycleModel
 
 
 def get_entry_point():

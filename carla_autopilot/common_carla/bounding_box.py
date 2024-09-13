@@ -7,11 +7,14 @@
 import carla
 import numpy as np
 from agents.tools.misc import get_trafficlight_trigger_location
-
-from src.common_carla.actor import get_forward_speed
-from src.common_carla.geometry import cross_product, dot_product
-from src.common_carla.waypoint import get_next_waypoints
-from src.utils.geometry import get_relative_position, get_transform_3D, normalize_angle
+from carla_autopilot.common_carla.actor import get_forward_speed
+from carla_autopilot.common_carla.geometry import cross_product, dot_product
+from carla_autopilot.common_carla.waypoint import get_next_waypoints
+from carla_autopilot.utils.geometry import (
+    get_relative_position,
+    get_transform_3D,
+    normalize_angle,
+)
 
 
 def get_close_actor_bbox(actor_info, actor_class, ego_vehicle):

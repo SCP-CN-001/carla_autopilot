@@ -10,9 +10,8 @@ import carla
 import numpy as np
 from agents.navigation.local_planner import LocalPlanner
 from agents.tools.misc import compute_distance, is_within_distance
+from carla_autopilot.common_carla.route import get_route_polygon
 from shapely.geometry import Polygon
-
-from src.common_carla.route import get_route_polygon
 
 
 def get_forward_speed(actor):

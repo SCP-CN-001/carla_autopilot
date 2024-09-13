@@ -9,9 +9,8 @@ import time
 
 import numpy as np
 import pygame
+from carla_autopilot.utils.common import get_absolute_path
 from omegaconf import OmegaConf
-
-from src.utils.common import get_absolute_path
 
 
 class Visualizer:

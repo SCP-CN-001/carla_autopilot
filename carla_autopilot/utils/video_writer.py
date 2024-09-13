@@ -13,10 +13,9 @@ import re
 import cv2
 import numpy as np
 import open3d as o3d
+from carla_autopilot.utils.common import get_absolute_path
 from omegaconf import OmegaConf
 from visualizer import Visualizer
-
-from src.utils.common import get_absolute_path
 
 
 def write_to_video(path_config):

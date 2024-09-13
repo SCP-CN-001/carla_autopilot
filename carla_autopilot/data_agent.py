@@ -18,13 +18,15 @@ import numpy as np
 import open3d as o3d
 import pygame
 import wandb
+from carla_autopilot.expert_agent import ExpertAgent
+from carla_autopilot.utils.common import get_absolute_path, get_random_weather
+from carla_autopilot.utils.geometry import (
+    get_transform_2D,
+    get_world_to_ego_to_image_coords,
+)
+from carla_autopilot.utils.visualizer import Visualizer
 from omegaconf import OmegaConf
 from srunner.scenariomanager.timer import GameTime
-
-from src.expert_agent import ExpertAgent
-from src.utils.common import get_absolute_path, get_random_weather
-from src.utils.geometry import get_transform_2D, get_world_to_ego_to_image_coords
-from src.utils.visualizer import Visualizer
 
 
 def get_entry_point():
@@ -415,6 +417,7 @@ class DataAgent(ExpertAgent):
                 [pt3.x, pt3.y, pt3.z],
                 [pt4.x, pt4.y, pt4.z],
             ]  # we only consider the upper surface
+
             return polygon_shape
 
         # concatenate the location of traffic lights and stop signs to route points

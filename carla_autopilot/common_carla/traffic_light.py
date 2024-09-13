@@ -8,8 +8,7 @@ from collections import deque
 
 import carla
 import numpy as np
-
-from src.common_carla.geometry import dot_product, location_global_to_local
+from carla_autopilot.common_carla.geometry import dot_product, location_global_to_local
 
 traffic_light_states = {
     0: carla.TrafficLightState.Green,

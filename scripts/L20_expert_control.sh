@@ -25,12 +25,12 @@ export ROUTES_SUBSET=0
 export REPETITIONS=1
 
 export CHALLENGE_TRACK_CODENAME=MAP
-export TEAM_AGENT=${WORKSPACE}/src/expert_agent.py
-export TEAM_CONFIG=${WORKSPACE}/src/configs/expert_agent.yaml
+export TEAM_AGENT=${WORKSPACE}/carla_autopilot/expert_agent.py
+export TEAM_CONFIG=${WORKSPACE}/carla_autopilot/configs/expert_agent.yaml
 export TIME_STAMP=$(date +"%s")
 export CHECKPOINT=${WORKSPACE}/data/expert_data/route_${ROUTES_SUBSET}/log_${TIME_STAMP}.json
 export PROFILER_LOG=${WORKSPACE}/data/expert_data/route_${ROUTES_SUBSET}/program.prof
-export PYTHON_FILE=${WORKSPACE}/src/leaderboard_custom/leaderboard_evaluator.py
+export PYTHON_FILE=${WORKSPACE}/carla_autopilot/leaderboard_custom/leaderboard_evaluator.py
 
 export RESUME=1
 export TM_SEED=0
