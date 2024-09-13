@@ -21,7 +21,7 @@ def get_absolute_path(path_):
 
 def get_random_weather(from_file: bool = False) -> dict:
     if from_file:
-        path_file = get_absolute_path("src/configs/weathers.csv")
+        path_file = get_absolute_path("carla_autopilot/configs/weathers.csv")
         df_weathers = pd.read_csv(path_file)
         weather = df_weathers.sample(axis=0, weights=df_weathers.frequency).to_dict(
             orient="records"

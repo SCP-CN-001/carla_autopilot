@@ -73,4 +73,4 @@ def write_to_video(path_config):
 
 
 if __name__ == "__main__":
-    write_to_video("src/configs/video_layout.yaml")
+    write_to_video("carla_autopilot/configs/video_layout.yaml")

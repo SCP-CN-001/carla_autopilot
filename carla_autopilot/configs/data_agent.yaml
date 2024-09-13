@@ -1,6 +1,6 @@
-path_agent_configs: src/configs/expert_agent.yaml
-path_sensor_configs: src/configs/sensors.yaml
-path_visualizer_configs: src/configs/visualize_binary.yaml
+path_agent_configs: carla_autopilot/configs/expert_agent.yaml
+path_sensor_configs: carla_autopilot/configs/sensors.yaml
+path_visualizer_configs: carla_autopilot/configs/visualize_binary.yaml
 
 # Wandb
 entity: rambler
@@ -26,7 +26,7 @@ save_semantic_bev:
   sensor_id: [semantic_bev]
   binary: true
   path_save: [roadline, drivable, static, dynamic]
-  path_palette: src/configs/binary_palette.yaml
+  path_palette: carla_autopilot/configs/binary_palette.yaml
 # Control whether to save the route line and the bounding box for red light and stop signs in a bev binary semantic map
 save_route: true
 route_image_width: 640
