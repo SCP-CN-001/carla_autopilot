@@ -11,7 +11,7 @@ color_map:
 - [1, 0, 0, 0]    # TrafficSigns
 - [0, 0, 1, 0]    # Vegetation
 - [0, 0, 1, 0]    # Terrain
-- [0, 0, 1, 0]    # Sky
+- [0, 0, 0, 1]    # Sky
 - [0, 0, 0, 1]    # Pedestrians
 - [0, 0, 0, 1]    # Rider
 - [0, 0, 0, 1]    # Car
