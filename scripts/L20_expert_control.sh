@@ -12,8 +12,6 @@ export PYTHONPATH=$PYTHONPATH:${LEADERBOARD_ROOT}
 export PYTHONPATH=$PYTHONPATH:${SCENARIO_RUNNER_ROOT}
 export PYTHONPATH=$PYTHONPATH:${AUTOPILOT_ROOT}
 
-export PYTHONPATH=$PYTHONPATH:/home/rowena/Documents/RAMBLE/carla_autopilot
-
 # general parameters
 export PORT=2000
 export TM_PORT=2500
