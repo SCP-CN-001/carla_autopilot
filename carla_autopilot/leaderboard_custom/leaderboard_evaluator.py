@@ -510,7 +510,9 @@ class LeaderboardEvaluator:
 
 
 def main():
-    logging.info("Running main() in src/leaderboard_custom/leaderboard_evaluator.py")
+    logging.info(
+        "Running main() in carla_autopilot/leaderboard_custom/leaderboard_evaluator.py"
+    )
     description = (
         "CARLA AD Leaderboard Evaluation: evaluate your Agent in CARLA scenarios\n"
     )
