@@ -3,34 +3,24 @@ path_sensor_configs: carla_autopilot/configs/sensors.yaml
 path_visualizer_configs: carla_autopilot/configs/visualize_binary.yaml
 
 # Wandb
+wandb_mode: online
 entity: rambler
 project: autopilot
 name: data_collection
 route: routes_training
 route_subset: 0
-save_control_command_to_wandb: true
-save_runtime_to_wandb: true
-log_format: pickle
 
 # Sensor configuration
 # sensor_ids: []
 sensor_ids: [camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev]
-# sensor_ids: [camera_front, camera_left, camera_right, camera_rear, lidar, semantic_bev_low, semantic_bev_high]
 
 # Data saving configuration
 # Describe the way to parse the semantic segmentation data in bird-eye view
 # path_save: /mnt/pool/rowena/expert_data/route_${route_subset}
 path_save: ./data/expert_data/route_${route_subset}
-save_semantic_bev:
-  # sensor_id: [semantic_bev_low, semantic_bev_high]
-  sensor_id: [semantic_bev]
-  binary: true
-  path_save: [roadline, drivable, static, dynamic]
-  path_palette: carla_autopilot/configs/binary_palette.yaml
-# Control whether to save the route line and the bounding box for red light and stop signs in a bev binary semantic map
+
+# Control whether to save the route line
 save_route: true
-route_image_width: 640
-route_image_height: 480
 
 # Decide whether to visualize the data
 visualize: false
