@@ -1299,7 +1299,7 @@ class ExpertAgent(AutonomousAgent):
                     carla.libcarla.TrafficLightState.Yellow,
                 ]:
                     self.traffic_light_loc.append(center_loc)
-                    self.close_traffic_lights.append([bbox, light.id, affect_ego])
+                    self.close_traffic_lights.append([bbox, light.state, light.id, affect_ego])
 
                 if self.debug:
                     if light.state == carla.libcarla.TrafficLightState.Red:
