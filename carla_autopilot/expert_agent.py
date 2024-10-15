@@ -89,7 +89,7 @@ class ExpertAgent(AutonomousAgent):
             )
         )
 
-        control = self.run_step(input_data)
+        control = self.run_step(input_data, timestamp)
         control.manual_gear_shift = False
 
         return control
@@ -227,8 +227,10 @@ class ExpertAgent(AutonomousAgent):
 
         # The bounding box of the traffic light that may affect the ego vehicle
         self.traffic_light_loc = []
+        self.close_traffic_lights = []
         # The bounding box of the stop sign that may affect the ego vehicle
         self.stop_sign_bbox = []
+        self.close_stop_signs = []
 
         self.vehicle_lights = (
             carla.VehicleLightState.Position | carla.VehicleLightState.LowBeam
@@ -301,7 +303,7 @@ class ExpertAgent(AutonomousAgent):
 
         return gps, speed, compass
 
-    def run_step(self, input_data):
+    def run_step(self, input_data, timestamp=None):
         """
         Run a single step of the agent's control loop.
 
@@ -1266,6 +1268,7 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The adjusted target speed for the ego vehicle.
         """
+        self.close_traffic_lights.clear()
         for light, center, waypoints in self.traffic_light_list:
             center_loc = carla.Location(center)
             if center_loc.distance(ego_location) > self.light_radius:
@@ -1296,6 +1299,7 @@ class ExpertAgent(AutonomousAgent):
                     carla.libcarla.TrafficLightState.Yellow,
                 ]:
                     self.traffic_light_loc.append(center_loc)
+                    self.close_traffic_lights.append([bbox, light.id, affect_ego])
 
                 if self.debug:
                     if light.state == carla.libcarla.TrafficLightState.Red:
@@ -1360,6 +1364,7 @@ class ExpertAgent(AutonomousAgent):
         Returns:
             float: The adjusted target speed for the ego vehicle.
         """
+        self.close_stop_signs.clear()
         stop_signs = get_nearby_objects(
             self.ego_vehicle,
             actor_list.filter("*traffic.stop*"),
@@ -1388,6 +1393,7 @@ class ExpertAgent(AutonomousAgent):
 
             if affect_ego:
                 self.stop_sign_bbox.append(bbox_stop_sign)
+                self.close_stop_signs.append([bbox_stop_sign, stop_sign.id, affect_ego])
 
             if self.debug:
                 color = carla.Color(0, 1, 0) if affect_ego else carla.Color(1, 0, 0)
