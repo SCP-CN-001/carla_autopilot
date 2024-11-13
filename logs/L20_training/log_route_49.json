@@ -1,0 +1,132 @@
+{
+    "_checkpoint": {
+        "global_record": {
+            "index": -1,
+            "route_id": -1,
+            "status": "Completed",
+            "infractions": {
+                "collisions_layout": 0.0,
+                "collisions_pedestrian": 0.0,
+                "collisions_vehicle": 0.537,
+                "red_light": 0.0,
+                "stop_infraction": 0.0,
+                "outside_route_lanes": 0.0,
+                "min_speed_infractions": 0.0,
+                "yield_emergency_vehicle_infractions": 0.215,
+                "scenario_timeouts": 0.0,
+                "route_dev": 0.0,
+                "vehicle_blocked": 0.0,
+                "route_timeout": 0.0
+            },
+            "scores_mean": {
+                "score_composed": 3.81024,
+                "score_route": 100.0,
+                "score_penalty": 0.038102
+            },
+            "scores_std_dev": {
+                "score_composed": 0,
+                "score_route": 0,
+                "score_penalty": 0
+            },
+            "meta": {
+                "total_length": 9307.027,
+                "duration_game": 635.85,
+                "duration_system": 3766.754,
+                "exceptions": []
+            }
+        },
+        "progress": [
+            1,
+            1
+        ],
+        "records": [
+            {
+                "index": 0,
+                "route_id": "RouteScenario_49_rep0",
+                "status": "Completed",
+                "num_infractions": 7,
+                "infractions": {
+                    "collisions_layout": [],
+                    "collisions_pedestrian": [],
+                    "collisions_vehicle": [
+                        "Agent collided against object with type=vehicle.audi.tt and id=23393 at (x=2235.424, y=3082.398, z=356.445)",
+                        "Agent collided against object with type=vehicle.ford.mustang and id=23907 at (x=-577.531, y=3066.903, z=357.461)",
+                        "Agent collided against object with type=vehicle.mercedes.coupe_2020 and id=24134 at (x=-156.304, y=3100.593, z=363.128)",
+                        "Agent collided against object with type=vehicle.mercedes.coupe_2020 and id=24133 at (x=1466.577, y=3098.881, z=364.459)",
+                        "Agent collided against object with type=vehicle.mini.cooper_s_2021 and id=24877 at (x=3449.748, y=3114.083, z=368.197)"
+                    ],
+                    "red_light": [],
+                    "stop_infraction": [],
+                    "outside_route_lanes": [],
+                    "min_speed_infractions": [],
+                    "yield_emergency_vehicle_infractions": [
+                        "Agent failed to yield to an emergency vehicle at (x=480.537, y=3096.484, z=361.401)",
+                        "Agent failed to yield to an emergency vehicle at (x=1601.76, y=3084.73, z=363.219)"
+                    ],
+                    "scenario_timeouts": [],
+                    "route_dev": [],
+                    "vehicle_blocked": [],
+                    "route_timeout": []
+                },
+                "scores": {
+                    "score_route": 100,
+                    "score_penalty": 0.038102,
+                    "score_composed": 3.81024
+                },
+                "meta": {
+                    "route_length": 9307.027,
+                    "duration_game": 635.85,
+                    "duration_system": 3766.754
+                }
+            }
+        ]
+    },
+    "entry_status": "Finished",
+    "eligible": true,
+    "sensors": [
+        "carla_opendrive_map",
+        "carla_imu",
+        "carla_speedometer",
+        "carla_gnss",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera",
+        "carla_camera",
+        "carla_lidar",
+        "carla_camera"
+    ],
+    "values": [
+        "3.81024",
+        "100.0",
+        "0.038102",
+        "0.0",
+        "0.537",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.0",
+        "0.215",
+        "0.0",
+        "0.0"
+    ],
+    "labels": [
+        "Avg. driving score",
+        "Avg. route completion",
+        "Avg. infraction penalty",
+        "Collisions with pedestrians",
+        "Collisions with vehicles",
+        "Collisions with layout",
+        "Red lights infractions",
+        "Stop sign infractions",
+        "Off-road infractions",
+        "Route deviations",
+        "Route timeouts",
+        "Agent blocked",
+        "Yield emergency vehicles infractions",
+        "Scenario timeouts",
+        "Min speed infractions"
+    ]
+}
