@@ -89,7 +89,7 @@ class ExpertAgent(AutonomousAgent):
             )
         )
 
-        control = self.run_step(input_data, timestamp)
+        control = self.run_step(input_data)
         control.manual_gear_shift = False
 
         return control
