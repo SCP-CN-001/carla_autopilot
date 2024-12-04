@@ -27,10 +27,6 @@ from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
 from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.traffic_events import TrafficEvent, TrafficEventType
 
-from srunner.scenariomanager.scenarioatomics.status_monitor import (
-    StatusMonitor,
-)
-
 
 class Criterion(py_trees.behaviour.Behaviour):
 
@@ -371,7 +367,6 @@ class CollisionTest(Criterion):
         self._collision_sensor.listen(lambda event: self._count_collisions(event))
         super().initialise()
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Check collision count
@@ -511,7 +506,6 @@ class ActorBlockedTest(Criterion):
         self._active = True
         self.units = None  # We care about whether or not it fails, no units attached
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Check if the actor speed is above the min_speed
@@ -1212,7 +1206,6 @@ class OutsideRouteLanesTest(Criterion):
 
         self._traffic_event = None
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Transforms the actor location and its four corners to waypoints. Depending on its types,
@@ -1736,7 +1729,6 @@ class InRouteTest(Criterion):
         blackv = py_trees.blackboard.Blackboard()
         _ = blackv.set("InRoute", True)
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Check if the actor location is within trigger region
@@ -1894,7 +1886,6 @@ class RouteCompletionTest(Criterion):
 
         return [x / max_dist * 100 for x in accum_meters]
 
-    @StatusMonitor.get_route_completion
     def update(self):
         """
         Check if the actor location is within trigger region
@@ -2015,7 +2006,6 @@ class RunningRedLightTest(Criterion):
 
         return not inter.is_empty
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Check if the actor is running a red light
@@ -2328,7 +2318,6 @@ class RunningStopTest(Criterion):
 
         return wp_list
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Check if the actor is running a red light
@@ -2446,7 +2435,6 @@ class MinimumSpeedRouteTest(Criterion):
 
         self._index = 0
 
-    @StatusMonitor.get_status
     def update(self):
         """
         Check if the actor location is within trigger region
@@ -2658,7 +2646,6 @@ class ScenarioTimeoutTest(Criterion):
         )
         return new_status
 
-    @StatusMonitor.get_status
     def terminate(self, new_status):
         """check the blackboard for the data and update the criteria if one found"""
 
