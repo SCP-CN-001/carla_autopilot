@@ -109,9 +109,11 @@ class ExpertAgent(AutonomousAgent):
         def decode_expression(x):
             return eval(x)
 
-        OmegaConf.register_new_resolver(
-            "decode_expression", decode_expression, use_cache=False
-        )
+        if not OmegaConf.has_resolver("decode_expression"):
+            OmegaConf.register_new_resolver(
+                "decode_expression", decode_expression, use_cache=False
+            )
+
         configs = OmegaConf.load(path_config)
 
         for key, value in configs.items():
