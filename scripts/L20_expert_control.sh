@@ -15,6 +15,7 @@ export PYTHONPATH=$PYTHONPATH:${AUTOPILOT_ROOT}
 # general parameters
 export PORT=2000
 export TM_PORT=2500
+export SEED=114514
 export DEBUG_CHALLENGE=0
 
 # simulation setup
@@ -26,16 +27,17 @@ export CHALLENGE_TRACK_CODENAME=MAP
 export TEAM_AGENT=${WORKSPACE}/carla_autopilot/expert_agent.py
 export TEAM_CONFIG=${WORKSPACE}/carla_autopilot/configs/expert_agent.yaml
 export TIME_STAMP=$(date +"%s")
-export CHECKPOINT=${WORKSPACE}/data/expert_data/route_${ROUTES_SUBSET}/log_${TIME_STAMP}.json
+export CHECKPOINT=${WORKSPACE}/logs/L20_validation/route_${ROUTES_SUBSET}_seed_${SEED}_${TIME_STAMP}.json
 export PROFILER_LOG=${WORKSPACE}/data/expert_data/route_${ROUTES_SUBSET}/program.prof
 export PYTHON_FILE=${WORKSPACE}/carla_autopilot/leaderboard_custom/leaderboard_evaluator.py
 
 export RESUME=1
-export TM_SEED=0
 
-python -m cProfile -o ${PROFILER_LOG} ${PYTHON_FILE} \
+# python -m cProfile -o ${PROFILER_LOG} ${PYTHON_FILE} \
+python ${PYTHON_FILE} \
     --port=${PORT} \
     --traffic-manager-port=${TM_PORT} \
+    --traffic-manager-seed=${SEED} \
     --routes=${ROUTES} \
     --routes-subset=${ROUTES_SUBSET} \
     --repetitions=${REPETITIONS} \
@@ -44,5 +46,4 @@ python -m cProfile -o ${PROFILER_LOG} ${PYTHON_FILE} \
     --agent=${TEAM_AGENT} \
     --agent-config=${TEAM_CONFIG} \
     --debug=${DEBUG_CHALLENGE} \
-    --resume=${RESUME} \
-    --traffic-manager-seed=${TM_SEED}
+    --resume=${RESUME}
