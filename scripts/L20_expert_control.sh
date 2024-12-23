@@ -15,12 +15,14 @@ export PYTHONPATH=$PYTHONPATH:${AUTOPILOT_ROOT}
 # general parameters
 export PORT=2000
 export TM_PORT=2500
-export SEED=114514
+export SEED=42
+# export SEED=11037
+# export SEED=114514
 export DEBUG_CHALLENGE=0
 
 # simulation setup
-export ROUTES=${WORKSPACE}/leaderboard_20/leaderboard/data/routes_training.xml
-export ROUTES_SUBSET=0
+export ROUTES=${WORKSPACE}/leaderboard_20/leaderboard/data/routes_validation.xml
+export ROUTES_SUBSET=19
 export REPETITIONS=1
 
 export CHALLENGE_TRACK_CODENAME=MAP
