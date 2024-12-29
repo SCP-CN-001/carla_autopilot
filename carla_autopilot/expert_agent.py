@@ -135,6 +135,7 @@ class ExpertAgent(AutonomousAgent):
         Args:
             path_to_conf_file (str): The absolute path to the configuration file.
         """
+        self.sensor_interface = SensorInterface()
         self.configs = self.parse_config(path_to_conf_file)
         self.step = -1
 
@@ -1301,7 +1302,9 @@ class ExpertAgent(AutonomousAgent):
                     carla.libcarla.TrafficLightState.Yellow,
                 ]:
                     self.traffic_light_loc.append(center_loc)
-                    self.close_traffic_lights.append([bbox, light.state, light.id, affect_ego])
+                    self.close_traffic_lights.append(
+                        [bbox, light.state, light.id, affect_ego]
+                    )
 
                 if self.debug:
                     if light.state == carla.libcarla.TrafficLightState.Red:
