@@ -463,7 +463,7 @@ class ExpertAgent(AutonomousAgent):
             self.commands.append(far_command.value)
             self.next_commands.append(next_far_command.value)
 
-        return control
+        return control, distance_next_traffic_light, next_traffic_light, distance_next_stop_sign
 
     def _reset_flags(self):
         self.traffic_light_hazard = False
